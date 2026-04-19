@@ -1,0 +1,8 @@
+services:
+  drive-webui:
+    image: ghcr.io/suraj7026/drive-webui:latest
+    container_name: surajdrive-frontend
+    pull_policy: always
+    ports:
+      - "4000:4000"
+    restart: unless-stopped

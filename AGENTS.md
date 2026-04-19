@@ -1,0 +1,15 @@
+<!-- BEGIN:nextjs-agent-rules -->
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+<!-- END:nextjs-agent-rules -->
+
+# Project Architecture & Conventions
+
+- **Repo scope**: This repo is the frontend only. The Go backend lives in a separate repo (`suraj-drive-api`) and is reached over HTTP.
+- **Next.js 16 App Router**: Uses the root `app/` directory (there is no `src/` folder).
+- **Custom Port**: The development and start servers run on port **4000** (`npm run dev`), not the default 3000.
+- **Route Groups**: The `app/` structure uses route groups heavily, such as `app/(archive)/`.
+- **Path Aliases**: The `@/*` path alias resolves to the project root `./*` (e.g., `@/app/...`, `@/lib/...`), not a `src/` directory.
+- **Styling**: Tailwind CSS v4 via `@tailwindcss/postcss`. There is no `tailwind.config.js` — tokens are wired through `app/globals.css`.
+- **API contract**: All HTTP calls go through `lib/api/` helpers, which read `NEXT_PUBLIC_API_URL` / `API_URL` (default `http://localhost:4001`). Do not hardcode the backend URL elsewhere.

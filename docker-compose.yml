@@ -1,0 +1,22 @@
+services:
+  webui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4001}
+    image: suraj-drive-webui:latest
+    container_name: suraj-drive-webui
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      HOSTNAME: 0.0.0.0
+      # Browser-side (must be reachable from the host browser):
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4001}
+      # Server-side (Node inside the container talking to the backend on the host):
+      API_URL: ${API_URL:-http://host.docker.internal:4001}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
