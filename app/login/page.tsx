@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getApiBaseUrl } from "@/lib/api/core";
 import { getCurrentUser } from "@/lib/services/auth-service";
 
 export default async function LoginPage() {
@@ -9,7 +8,7 @@ export default async function LoginPage() {
     redirect(`/archive/${user.bucket}`);
   }
 
-  const loginHref = `${getApiBaseUrl()}/api/auth/google/login`;
+  const loginHref = "/drive-api/api/auth/google/login";
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-16">
