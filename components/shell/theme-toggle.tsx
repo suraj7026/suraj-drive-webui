@@ -44,15 +44,15 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       </span>
       <span
         className={cn(
-          "relative h-5 w-9 rounded-full transition-colors",
+          "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
           isDark ? "bg-[var(--color-primary)]" : "bg-[var(--color-surface-highest)]"
         )}
         aria-hidden="true"
       >
         <span
           className={cn(
-            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
-            isDark ? "translate-x-[1.125rem]" : "translate-x-0.5"
+            "absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white shadow transition-transform",
+            isDark ? "translate-x-4" : "translate-x-0"
           )}
         />
       </span>
