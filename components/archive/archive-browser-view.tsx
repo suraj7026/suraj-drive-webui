@@ -19,7 +19,8 @@ import {
   TableProperties,
   Trash2,
 } from "lucide-react";
-import { clientApiFetch, uploadFileWithProgress } from "@/lib/api/client";
+import { clientApiFetch, uploadFileWithProgress, UploadError } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/core";
 import type { BackendPresignResponse } from "@/lib/models/backend";
 import { AppShell } from "@/components/shell/app-shell";
 import type { ArchiveContext, FileItem } from "@/lib/models/archive";
@@ -30,6 +31,7 @@ import { cn } from "@/lib/utils/cn";
 import { TransferDrawer } from "@/components/upload/transfer-drawer";
 import { UploadDialog } from "@/components/upload/upload-dialog";
 import { NewFolderDialog } from "@/components/archive/new-folder-dialog";
+import { DeleteDialog } from "@/components/archive/delete-dialog";
 
 type ArchiveBrowserViewProps = {
   context: ArchiveContext;
@@ -44,6 +46,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const [transfers, setTransfers] = useState<TransferItem[]>(context.transferQueue);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<FileItem | null>(null);
   const currentPrefix = joinPath(context.path);
   const archiveHref = `/archive/${context.user.bucket}`;
   const canManageView = context.section === "archive";
@@ -93,40 +96,78 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
     const controller = new AbortController();
     controllersRef.current[transferId] = controller;
 
+    const maxAttempts = 2;
+    let lastError: unknown;
+
     try {
-      updateTransfer(transferId, {
-        status: "uploading",
-        statusLabel: `Preparing upload to ${uploadTargetLabel}`,
-      });
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        updateTransfer(transferId, {
+          status: "uploading",
+          transferredBytes: 0,
+          statusLabel:
+            attempt === 1
+              ? `Preparing upload to ${uploadTargetLabel}`
+              : `Retrying upload to ${uploadTargetLabel}`,
+        });
 
-      const presign = await clientApiFetch<BackendPresignResponse>(
-        `/api/files/presign/upload?key=${encodeURIComponent(requestedKey)}`
-      );
+        let presign: BackendPresignResponse;
+        try {
+          presign = await clientApiFetch<BackendPresignResponse>(
+            `/api/files/presign/upload?key=${encodeURIComponent(requestedKey)}`
+          );
+        } catch (error) {
+          lastError = error;
+          if (isRetryablePresignError(error) && attempt < maxAttempts) {
+            continue;
+          }
+          throw error;
+        }
 
-      updateTransfer(transferId, {
-        objectKey: presign.key,
-        statusLabel: `Uploading to ${uploadTargetLabel}`,
-      });
+        updateTransfer(transferId, {
+          objectKey: presign.key,
+          statusLabel:
+            attempt === 1
+              ? `Uploading to ${uploadTargetLabel}`
+              : `Retrying upload to ${uploadTargetLabel}`,
+        });
 
-      await uploadFileWithProgress({
-        url: presign.url,
-        file,
-        signal: controller.signal,
-        onProgress: (loadedBytes) => {
-          updateTransfer(transferId, {
-            transferredBytes: loadedBytes,
-            status: "uploading",
-            statusLabel: `${formatBytes(loadedBytes)} of ${formatBytes(file.size)} uploaded`,
+        try {
+          await uploadFileWithProgress({
+            url: presign.url,
+            file,
+            signal: controller.signal,
+            onProgress: (loadedBytes) => {
+              updateTransfer(transferId, {
+                transferredBytes: loadedBytes,
+                status: "uploading",
+                statusLabel: `${formatBytes(loadedBytes)} of ${formatBytes(file.size)} uploaded`,
+              });
+            },
           });
-        },
-      });
 
-      updateTransfer(transferId, {
-        transferredBytes: file.size,
-        status: "done",
-        statusLabel: `Uploaded to ${uploadTargetLabel}`,
-      });
-      startTransition(() => router.refresh());
+          updateTransfer(transferId, {
+            transferredBytes: file.size,
+            status: "done",
+            statusLabel: `Uploaded to ${uploadTargetLabel}`,
+            errorMessage: undefined,
+          });
+          startTransition(() => router.refresh());
+          return;
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            throw error;
+          }
+          lastError = error;
+          const retryable = error instanceof UploadError ? error.retryable : false;
+          if (!retryable || attempt >= maxAttempts) {
+            throw error;
+          }
+        }
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
     } catch (error) {
       const aborted = error instanceof DOMException && error.name === "AbortError";
       updateTransfer(transferId, {
@@ -193,26 +234,20 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
     }
   }
 
-  async function handleDelete(item: FileItem) {
-    const confirmed = window.confirm(`Delete ${item.name}?`);
-    if (!confirmed) {
-      return;
-    }
-
+  function requestDelete(item: FileItem) {
     setActionError(null);
+    setDeleteTarget(item);
+  }
 
-    try {
-      if (item.kind === "folder") {
-        await clientApiFetch(`/api/folders?prefix=${encodeURIComponent(folderPrefix(item))}`, { method: "DELETE" });
-      } else {
-        await clientApiFetch(`/api/files?key=${encodeURIComponent(itemKey(item))}`, { method: "DELETE" });
-      }
-
-      setSelectedId((current) => (current === item.id ? null : current));
-      startTransition(() => router.refresh());
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Failed to delete item.");
+  async function performDelete(item: FileItem) {
+    if (item.kind === "folder") {
+      await clientApiFetch(`/api/folders?prefix=${encodeURIComponent(folderPrefix(item))}`, { method: "DELETE" });
+    } else {
+      await clientApiFetch(`/api/files?key=${encodeURIComponent(itemKey(item))}`, { method: "DELETE" });
     }
+
+    setSelectedId((current) => (current === item.id ? null : current));
+    startTransition(() => router.refresh());
   }
 
   return (
@@ -286,11 +321,11 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
           ) : null}
 
           <div className="overflow-hidden rounded-[32px] bg-[var(--color-surface-strong)] shadow-[0_12px_32px_rgba(26,28,25,0.06)]">
-            <div className="grid grid-cols-[minmax(0,1.3fr)_140px_120px_132px] gap-4 px-5 py-4 text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)] sm:px-6">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-5 py-4 text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)] sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:px-6 md:grid-cols-[minmax(0,1.3fr)_140px_100px_auto]">
               <span>Name</span>
-              <span>Modified</span>
-              <span>Size</span>
-              <span>Actions</span>
+              <span className="hidden md:block">Modified</span>
+              <span className="hidden sm:block">Size</span>
+              <span className="justify-self-end">Actions</span>
             </div>
 
             {context.items.length === 0 ? (
@@ -309,7 +344,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                     <article
                       key={item.id}
                       className={cn(
-                        "grid grid-cols-[minmax(0,1.3fr)_140px_120px_132px] gap-4 px-5 py-4 transition-colors sm:px-6",
+                        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition-colors sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:px-6 md:grid-cols-[minmax(0,1.3fr)_140px_100px_auto]",
                         selectedItem?.id === item.id
                           ? "bg-[var(--color-secondary-soft)]/88"
                           : "hover:bg-[var(--color-surface-low)]/75"
@@ -334,11 +369,11 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                           </span>
                         </button>
                       </div>
-                      <span className="text-sm text-[var(--color-text-muted)]">{readUpdatedLabel(item)}</span>
-                      <span className="text-sm text-[var(--color-text-muted)]">
+                      <span className="hidden text-sm text-[var(--color-text-muted)] md:block">{readUpdatedLabel(item)}</span>
+                      <span className="hidden text-sm text-[var(--color-text-muted)] sm:block">
                         {item.sizeBytes ? formatBytes(item.sizeBytes) : "--"}
                       </span>
-                      <div className="flex items-start gap-2 text-[var(--color-text-soft)]">
+                      <div className="flex items-center justify-self-end gap-1 text-[var(--color-text-soft)] sm:gap-2">
                         {href ? (
                           <Link href={href} className="rounded-full p-2 hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)]">
                             <ChevronRight size={16} />
@@ -369,7 +404,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 
                         <button
                           type="button"
-                          onClick={() => void handleDelete(item)}
+                          onClick={() => requestDelete(item)}
                           disabled={isPending}
                           className="rounded-full p-2 hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-40"
                           aria-label={`Delete ${item.name}`}
@@ -409,6 +444,13 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
           />
         </>
       ) : null}
+
+      <DeleteDialog
+        open={deleteTarget !== null}
+        item={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={performDelete}
+      />
     </AppShell>
   );
 }
@@ -672,4 +714,20 @@ function folderPrefix(item: FileItem) {
 
 function readUpdatedLabel(item: FileItem) {
   return item.updatedAt ? formatDateLabel(item.updatedAt) : "--";
+}
+
+function isRetryablePresignError(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    if (error.status >= 500) {
+      return true;
+    }
+    if (error.status === 408 || error.status === 425 || error.status === 429) {
+      return true;
+    }
+    return false;
+  }
+  if (error instanceof TypeError) {
+    return true;
+  }
+  return false;
 }
