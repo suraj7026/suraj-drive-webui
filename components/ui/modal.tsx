@@ -50,7 +50,7 @@ export function Modal({ open, onClose, title, description, children, className }
         type="button"
         aria-label="Close dialog"
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-[rgba(15,18,21,0.55)] backdrop-blur-sm"
+        className="absolute inset-0 cursor-default bg-[var(--color-scrim)] backdrop-blur-sm"
       />
       <div
         role="document"

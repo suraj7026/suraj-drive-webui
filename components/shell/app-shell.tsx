@@ -7,6 +7,7 @@ import { Menu, Search, Sparkles } from "lucide-react";
 import { clientApiFetch } from "@/lib/api/client";
 import { cn } from "@/lib/utils/cn";
 import { navItems } from "@/lib/theme/navigation";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import type { CurrentUser } from "@/lib/models/auth";
 
 type AppShellProps = {
@@ -101,7 +102,7 @@ export function AppShell({
                     "flex items-center justify-between rounded-[20px] px-4 py-3 transition-all duration-200",
                     active
                       ? "bg-[var(--color-surface-strong)] text-[var(--color-text)] shadow-[0_10px_30px_rgba(25,28,30,0.08)]"
-                      : "text-[var(--color-text-muted)] hover:bg-white/55 hover:text-[var(--color-text)]"
+                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-hover-overlay)] hover:text-[var(--color-text)]"
                   )}
                 >
                   <span className="flex items-center gap-3">
@@ -125,6 +126,8 @@ export function AppShell({
             <p className="font-heading mt-3 text-xl font-semibold leading-8">A private archive built for one careful curator.</p>
           </div>
 
+          <ThemeToggle className="mt-4" />
+
           <div className="mt-4 rounded-[24px] bg-[var(--color-surface-strong)] px-4 py-5 shadow-[0_12px_32px_rgba(26,28,25,0.05)]">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-low)] text-sm font-semibold text-[var(--color-primary)]">
@@ -140,12 +143,12 @@ export function AppShell({
               type="button"
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="mt-4 w-full rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-4 w-full rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-high)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isLoggingOut ? "Signing out..." : "Sign out"}
             </button>
 
-            {logoutError ? <p className="mt-3 text-xs text-red-600">{logoutError}</p> : null}
+            {logoutError ? <p className="mt-3 text-xs text-[var(--color-danger-text)]">{logoutError}</p> : null}
           </div>
         </aside>
 

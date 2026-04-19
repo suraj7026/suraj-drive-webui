@@ -315,7 +315,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
           </div>
 
           {actionError ? (
-            <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+            <div className="rounded-[24px] border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] px-4 py-4 text-sm text-[var(--color-danger-text)]">
               {actionError}
             </div>
           ) : null}

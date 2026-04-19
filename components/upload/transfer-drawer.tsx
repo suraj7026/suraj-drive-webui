@@ -94,7 +94,7 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
                 </div>
 
                 {transfer.status === "error" ? (
-                  <div className="mt-3 flex items-start gap-2 rounded-[12px] bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
+                  <div className="mt-3 flex items-start gap-2 rounded-[12px] bg-[var(--color-danger-soft)] px-2.5 py-2 text-[11px] text-[var(--color-danger-text)]">
                     <TriangleAlert size={12} className="mt-0.5 shrink-0" />
                     <span>{transfer.errorMessage ?? "Upload failed."}</span>
                   </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Google_Sans } from "next/font/google";
 import "./globals.css";
+import { THEME_INIT_SCRIPT } from "@/lib/theme/theme";
 
 const headingFont = Google_Sans({
   variable: "--font-heading",
@@ -25,7 +26,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${headingFont.variable} ${bodyFont.variable} h-full`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${headingFont.variable} ${bodyFont.variable} h-full`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full bg-[var(--color-surface)] text-[var(--color-text)] antialiased">
         {children}
       </body>

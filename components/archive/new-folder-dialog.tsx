@@ -65,7 +65,7 @@ export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFol
           />
         </label>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-[var(--color-danger-text)]">{error}</p> : null}
 
         <div className="mt-2 flex items-center justify-end gap-2">
           <button
