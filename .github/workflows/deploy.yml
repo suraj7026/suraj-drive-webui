@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -29,24 +29,12 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=https://drive.sudarshanrajagopalan.one/drive-api
 
-      - name: Copy compose file to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "deploy/docker-compose.yml"
-          target: "~/drive/web/"
-          strip_components: 1
+      - name: Local Deploy
+        run: |
+          mkdir -p ~/drive/web
+          cd ~/drive/web
 
-      - name: SSH Deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            mkdir -p ~/drive/web
-            cd ~/drive/web
-            docker compose pull
-            docker compose up -d
+          cp "$GITHUB_WORKSPACE/deploy/docker-compose.yml" ./docker-compose.yml
+
+          docker compose pull
+          docker compose up -d
