@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useMemo, useState, useTransition } from "react";
-import { Bell, HelpCircle, Menu, Search, Settings2, Sparkles } from "lucide-react";
+import { Menu, Search, Sparkles } from "lucide-react";
 import { clientApiFetch } from "@/lib/api/client";
 import { cn } from "@/lib/utils/cn";
 import { navItems } from "@/lib/theme/navigation";
@@ -91,11 +91,12 @@ export function AppShell({
             {navItems.map((item) => {
               const active = item.match(pathname);
               const Icon = item.icon;
+              const href = item.href === "/archive/my-archive" ? `/archive/${user.bucket}` : item.href;
 
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={href}
                   className={cn(
                     "flex items-center justify-between rounded-[20px] px-4 py-3 transition-all duration-200",
                     active
@@ -117,14 +118,11 @@ export function AppShell({
             })}
           </nav>
 
-          {transferDrawer ? <div className="mt-6">{transferDrawer}</div> : null}
+          {transferDrawer ? <div className="mt-6 min-w-0">{transferDrawer}</div> : null}
 
           <div className="surface-grid mt-6 rounded-[24px] bg-[var(--color-surface-high)] px-4 py-5">
             <p className="text-xs uppercase tracking-[0.26em] text-[var(--color-text-soft)]">Personal Mode</p>
             <p className="font-heading mt-3 text-xl font-semibold leading-8">A private archive built for one careful curator.</p>
-            <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-              Live data is now loaded from your Go API-backed bucket.
-            </p>
           </div>
 
           <div className="mt-4 rounded-[24px] bg-[var(--color-surface-strong)] px-4 py-5 shadow-[0_12px_32px_rgba(26,28,25,0.05)]">
@@ -181,9 +179,6 @@ export function AppShell({
 
                 <div className="flex items-center gap-2">
                   {headerAction}
-                  <ToolbarButton icon={HelpCircle} label="Help" />
-                  <ToolbarButton icon={Settings2} label="Settings" />
-                  <ToolbarButton icon={Bell} label="Activity" />
                 </div>
               </div>
             </div>
@@ -202,24 +197,6 @@ export function AppShell({
         </div>
       </div>
     </div>
-  );
-}
-
-function ToolbarButton({
-  icon: Icon,
-  label,
-}: {
-  icon: typeof Search;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-strong)] text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]"
-    >
-      <Icon size={18} />
-    </button>
   );
 }
 

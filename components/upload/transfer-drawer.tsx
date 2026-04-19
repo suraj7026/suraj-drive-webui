@@ -25,7 +25,7 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
   }
 
   return (
-    <div className="rounded-[24px] bg-[var(--color-surface-high)] shadow-[0_12px_32px_rgba(26,28,25,0.05)]">
+    <div className="w-full min-w-0 overflow-hidden rounded-[24px] bg-[var(--color-surface-high)] shadow-[0_12px_32px_rgba(26,28,25,0.05)]">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
@@ -55,7 +55,7 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
       </button>
 
       {open ? (
-        <div className="grid gap-2 px-3 pb-3">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-2 px-3 pb-3">
           {transfers.slice(0, 3).map((transfer) => {
             const percent = transfer.totalBytes > 0
               ? Math.min(100, Math.round((transfer.transferredBytes / transfer.totalBytes) * 100))
@@ -64,12 +64,12 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
             return (
               <div
                 key={transfer.id}
-                className="rounded-[18px] bg-[var(--color-surface-strong)] px-3 py-3 shadow-[0_8px_22px_rgba(26,28,25,0.04)]"
+                className="min-w-0 rounded-[18px] bg-[var(--color-surface-strong)] px-3 py-3 shadow-[0_8px_22px_rgba(26,28,25,0.04)]"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                <div className="flex min-w-0 items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium">{transfer.fileName}</p>
-                    <p className="mt-0.5 text-[11px] text-[var(--color-text-soft)]">{transfer.statusLabel}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-[var(--color-text-soft)]">{transfer.statusLabel}</p>
                   </div>
                   <div className="flex shrink-0 gap-0.5">
                     <button

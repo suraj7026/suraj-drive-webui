@@ -566,10 +566,6 @@ function DetailsPanel({ item }: { item: FileItem | null }) {
       <DetailRow label="Updated" value={item.updatedAt ? formatDateLabel(item.updatedAt) : "--"} />
       <DetailRow label="Size" value={item.sizeBytes ? formatBytes(item.sizeBytes) : "--"} />
       <DetailRow label="Classification" value={item.tags?.join(" · ") ?? "Personal Archive"} />
-
-      <div className="rounded-[24px] bg-[var(--color-secondary-soft)] px-4 py-4 text-sm leading-6 text-[var(--color-text-muted)]">
-        This object is loaded from your live bucket through the Go API.
-      </div>
     </div>
   );
 }
