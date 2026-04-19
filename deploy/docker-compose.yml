@@ -2,7 +2,10 @@ services:
   drive-webui:
     image: ghcr.io/suraj7026/drive-webui:latest
     container_name: surajdrive-frontend
-    pull_policy: always
     ports:
       - "4000:4000"
-    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_URL=https://drive.sudarshanrajagopalan.one/drive-api
+      - API_URL=https://drive.sudarshanrajagopalan.one/drive-api
+      - BACKEND_URL=https://drive.sudarshanrajagopalan.one/drive-api
+    restart: always
