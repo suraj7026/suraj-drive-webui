@@ -18,6 +18,7 @@ type AppShellProps = {
   transferDrawer?: ReactNode;
   headerAction?: ReactNode;
   newObjectHref?: string;
+  onNewObjectClick?: () => void;
 };
 
 export function AppShell({
@@ -28,7 +29,8 @@ export function AppShell({
   detail,
   transferDrawer,
   headerAction,
-  newObjectHref = "/upload",
+  newObjectHref,
+  onNewObjectClick,
 }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -62,17 +64,27 @@ export function AppShell({
                 <Sparkles size={20} />
               </div>
               <div>
-                <p className="font-heading text-lg font-semibold">SDrive</p>
+                <p className="font-heading text-lg font-semibold">Drive</p>
                 <p className="text-sm text-[var(--color-text-soft)]">Personal Cloud Archive</p>
               </div>
             </div>
 
-            <Link
-              href={newObjectHref}
-              className="primary-gradient flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,95,184,0.22)]"
-            >
-              New Object
-            </Link>
+            {onNewObjectClick ? (
+              <button
+                type="button"
+                onClick={onNewObjectClick}
+                className="primary-gradient flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,95,184,0.22)]"
+              >
+                New Object
+              </button>
+            ) : (
+              <Link
+                href={newObjectHref ?? `/archive/${user.bucket}`}
+                className="primary-gradient flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,95,184,0.22)]"
+              >
+                New Object
+              </Link>
+            )}
           </div>
 
           <nav className="mt-10 flex-1 space-y-2">
@@ -104,6 +116,8 @@ export function AppShell({
               );
             })}
           </nav>
+
+          {transferDrawer ? <div className="mt-6">{transferDrawer}</div> : null}
 
           <div className="surface-grid mt-6 rounded-[24px] bg-[var(--color-surface-high)] px-4 py-5">
             <p className="text-xs uppercase tracking-[0.26em] text-[var(--color-text-soft)]">Personal Mode</p>
@@ -187,8 +201,6 @@ export function AppShell({
           </div>
         </div>
       </div>
-
-      {transferDrawer}
     </div>
   );
 }

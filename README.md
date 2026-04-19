@@ -1,6 +1,6 @@
-# SDrive WebUI
+# Drive WebUI
 
-Next.js 16 frontend for the SDrive archive UI. It connects to the [Go backend](https://github.com/suraj7026/suraj-drive-api) for:
+Next.js 16 frontend for the Drive archive UI. It connects to the [Go backend](https://github.com/suraj7026/suraj-drive-api) for:
 
 - Google login and session lookup
 - Bucket browsing

@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CloudUpload, Pause, Play, TriangleAlert, X } from "lucide-react";
+import { ChevronDown, CloudUpload, Pause, Play, TriangleAlert, X } from "lucide-react";
 import type { TransferItem } from "@/lib/models/transfers";
 import { formatBytes } from "@/lib/utils/format";
+import { cn } from "@/lib/utils/cn";
 
 type TransferDrawerProps = {
   transfers: TransferItem[];
@@ -19,89 +20,111 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
     return { active, total: transfers.length };
   }, [transfers]);
 
+  if (transfers.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="fixed bottom-5 right-5 z-20 hidden w-[360px] xl:block">
-      <div className="ambient-panel overflow-hidden rounded-[32px]">
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          className="flex w-full items-center justify-between px-5 py-4 text-left"
-        >
-          <span>
-            <span className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)]">Transfer Drawer</span>
-            <span className="font-heading mt-1 block text-lg font-semibold tracking-[-0.04em]">
+    <div className="rounded-[24px] bg-[var(--color-surface-high)] shadow-[0_12px_32px_rgba(26,28,25,0.05)]">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-strong)] text-[var(--color-primary)]">
+            <CloudUpload size={16} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[10px] uppercase tracking-[0.28em] text-[var(--color-text-soft)]">
+              Transfers
+            </span>
+            <span className="font-heading mt-0.5 block truncate text-sm font-semibold tracking-[-0.02em]">
               {summary.active} active of {summary.total}
             </span>
           </span>
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface-strong)] text-[var(--color-primary)]">
-            <CloudUpload size={18} />
-          </span>
-        </button>
+        </span>
+        <ChevronDown
+          size={16}
+          className={cn(
+            "shrink-0 text-[var(--color-text-soft)] transition-transform",
+            open ? "rotate-180" : "rotate-0"
+          )}
+        />
+      </button>
 
-        {open ? (
-          <div className="grid gap-3 px-4 py-4">
-            {transfers.length === 0 ? (
-              <div className="rounded-[24px] bg-[var(--color-surface-strong)] px-4 py-5 text-sm text-[var(--color-text-soft)] shadow-[0_12px_32px_rgba(26,28,25,0.05)]">
-                No active transfers yet.
-              </div>
-            ) : null}
+      {open ? (
+        <div className="grid gap-2 px-3 pb-3">
+          {transfers.slice(0, 3).map((transfer) => {
+            const percent = transfer.totalBytes > 0
+              ? Math.min(100, Math.round((transfer.transferredBytes / transfer.totalBytes) * 100))
+              : 0;
 
-            {transfers.slice(0, 3).map((transfer) => {
-              const percent = transfer.totalBytes > 0
-                ? Math.min(100, Math.round((transfer.transferredBytes / transfer.totalBytes) * 100))
-                : 0;
-
-              return (
-                <div key={transfer.id} className="rounded-[24px] bg-[var(--color-surface-strong)] px-4 py-4 shadow-[0_12px_32px_rgba(26,28,25,0.05)]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{transfer.fileName}</p>
-                      <p className="mt-1 text-xs text-[var(--color-text-soft)]">{transfer.statusLabel}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        disabled={!onToggleStatus || transfer.status === "done" || transfer.status === "error"}
-                        onClick={() => onToggleStatus?.(transfer.id)}
-                        className="rounded-full p-2 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {transfer.status === "paused" ? <Play size={14} /> : <Pause size={14} />}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!onRemove}
-                        onClick={() => onRemove?.(transfer.id)}
-                        className="rounded-full p-2 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
+            return (
+              <div
+                key={transfer.id}
+                className="rounded-[18px] bg-[var(--color-surface-strong)] px-3 py-3 shadow-[0_8px_22px_rgba(26,28,25,0.04)]"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">{transfer.fileName}</p>
+                    <p className="mt-0.5 text-[11px] text-[var(--color-text-soft)]">{transfer.statusLabel}</p>
                   </div>
-
-                  {transfer.status === "error" ? (
-                    <div className="mt-4 flex items-start gap-2 rounded-[18px] bg-red-50 px-3 py-3 text-xs text-red-700">
-                      <TriangleAlert size={14} className="mt-0.5 shrink-0" />
-                      <span>{transfer.errorMessage ?? "Upload failed."}</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mt-4 h-2 rounded-full bg-[var(--color-surface-low)]">
-                        <div className="primary-gradient h-2 rounded-full transition-[width] duration-300" style={{ width: `${percent}%` }} />
-                      </div>
-                      <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-soft)]">
-                        <span>{percent}%</span>
-                        <span>
-                          {formatBytes(transfer.transferredBytes)} / {formatBytes(transfer.totalBytes)}
-                        </span>
-                      </div>
-                    </>
-                  )}
+                  <div className="flex shrink-0 gap-0.5">
+                    <button
+                      type="button"
+                      aria-label={transfer.status === "paused" ? "Resume transfer" : "Pause transfer"}
+                      disabled={!onToggleStatus || transfer.status === "done" || transfer.status === "error"}
+                      onClick={() => onToggleStatus?.(transfer.id)}
+                      className="rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {transfer.status === "paused" ? <Play size={12} /> : <Pause size={12} />}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Dismiss transfer"
+                      disabled={!onRemove}
+                      onClick={() => onRemove?.(transfer.id)}
+                      className="rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
+
+                {transfer.status === "error" ? (
+                  <div className="mt-3 flex items-start gap-2 rounded-[12px] bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
+                    <TriangleAlert size={12} className="mt-0.5 shrink-0" />
+                    <span>{transfer.errorMessage ?? "Upload failed."}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-3 h-1.5 rounded-full bg-[var(--color-surface-low)]">
+                      <div
+                        className="primary-gradient h-1.5 rounded-full transition-[width] duration-300"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--color-text-soft)]">
+                      <span>{percent}%</span>
+                      <span>
+                        {formatBytes(transfer.transferredBytes)} / {formatBytes(transfer.totalBytes)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+
+          {transfers.length > 3 ? (
+            <p className="px-1 text-[11px] text-[var(--color-text-soft)]">
+              +{transfers.length - 3} more in queue
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

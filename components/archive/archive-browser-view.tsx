@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowDownToLine,
   ArrowUpWideNarrow,
@@ -19,14 +19,17 @@ import {
   TableProperties,
   Trash2,
 } from "lucide-react";
-import { clientApiFetch } from "@/lib/api/client";
+import { clientApiFetch, uploadFileWithProgress } from "@/lib/api/client";
 import type { BackendPresignResponse } from "@/lib/models/backend";
 import { AppShell } from "@/components/shell/app-shell";
 import type { ArchiveContext, FileItem } from "@/lib/models/archive";
+import type { TransferItem } from "@/lib/models/transfers";
 import { formatBytes, formatDateLabel } from "@/lib/utils/format";
 import { buildArchiveHref } from "@/lib/utils/archive-path";
 import { cn } from "@/lib/utils/cn";
 import { TransferDrawer } from "@/components/upload/transfer-drawer";
+import { UploadDialog } from "@/components/upload/upload-dialog";
+import { NewFolderDialog } from "@/components/archive/new-folder-dialog";
 
 type ArchiveBrowserViewProps = {
   context: ArchiveContext;
@@ -34,36 +37,128 @@ type ArchiveBrowserViewProps = {
 
 export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const router = useRouter();
+  const controllersRef = useRef<Record<string, AbortController>>({});
   const [selectedId, setSelectedId] = useState<string | null>(context.defaultSelectedId);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [transfers, setTransfers] = useState<TransferItem[]>(context.transferQueue);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [folderOpen, setFolderOpen] = useState(false);
   const currentPrefix = joinPath(context.path);
-  const uploadHref = currentPrefix ? `/upload?prefix=${encodeURIComponent(currentPrefix)}` : "/upload";
   const archiveHref = `/archive/${context.user.bucket}`;
   const canManageView = context.section === "archive";
+  const uploadTargetLabel = currentPrefix
+    ? `My Archive / ${currentPrefix}`
+    : "My Archive";
 
   const selectedItem = useMemo(
     () => context.items.find((item) => item.id === selectedId) ?? context.items[0] ?? null,
     [context.items, selectedId]
   );
 
-  async function handleCreateFolder() {
-    const name = window.prompt("Folder name");
-    if (!name) {
+  async function handleSubmitFolder(name: string) {
+    setActionError(null);
+    await clientApiFetch("/api/folders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefix: currentPrefix, name }),
+    });
+    startTransition(() => router.refresh());
+  }
+
+  function updateTransfer(transferId: string, updates: Partial<TransferItem>) {
+    setTransfers((current) =>
+      current.map((transfer) => (transfer.id === transferId ? { ...transfer, ...updates } : transfer))
+    );
+  }
+
+  function handleRemoveTransfer(transferId: string) {
+    controllersRef.current[transferId]?.abort();
+    delete controllersRef.current[transferId];
+    setTransfers((current) => current.filter((transfer) => transfer.id !== transferId));
+  }
+
+  function handleToggleTransfer(transferId: string) {
+    const transfer = transfers.find((candidate) => candidate.id === transferId);
+    if (!transfer) {
       return;
     }
+    if (transfer.status === "uploading") {
+      controllersRef.current[transferId]?.abort();
+    }
+  }
 
-    setActionError(null);
+  async function uploadTransfer(transferId: string, file: File) {
+    const requestedKey = currentPrefix ? `${currentPrefix}/${file.name}` : file.name;
+    const controller = new AbortController();
+    controllersRef.current[transferId] = controller;
 
     try {
-      await clientApiFetch("/api/folders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prefix: currentPrefix, name }),
+      updateTransfer(transferId, {
+        status: "uploading",
+        statusLabel: `Preparing upload to ${uploadTargetLabel}`,
+      });
+
+      const presign = await clientApiFetch<BackendPresignResponse>(
+        `/api/files/presign/upload?key=${encodeURIComponent(requestedKey)}`
+      );
+
+      updateTransfer(transferId, {
+        objectKey: presign.key,
+        statusLabel: `Uploading to ${uploadTargetLabel}`,
+      });
+
+      await uploadFileWithProgress({
+        url: presign.url,
+        file,
+        signal: controller.signal,
+        onProgress: (loadedBytes) => {
+          updateTransfer(transferId, {
+            transferredBytes: loadedBytes,
+            status: "uploading",
+            statusLabel: `${formatBytes(loadedBytes)} of ${formatBytes(file.size)} uploaded`,
+          });
+        },
+      });
+
+      updateTransfer(transferId, {
+        transferredBytes: file.size,
+        status: "done",
+        statusLabel: `Uploaded to ${uploadTargetLabel}`,
       });
       startTransition(() => router.refresh());
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Failed to create folder.");
+      const aborted = error instanceof DOMException && error.name === "AbortError";
+      updateTransfer(transferId, {
+        status: aborted ? "paused" : "error",
+        statusLabel: aborted ? "Upload canceled" : "Upload failed",
+        errorMessage: aborted ? undefined : error instanceof Error ? error.message : "Upload failed",
+      });
+    } finally {
+      delete controllersRef.current[transferId];
+    }
+  }
+
+  function handleFilesSelected(files: FileList | null) {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    for (const file of Array.from(files)) {
+      const transferId = `${file.name}-${file.size}-${crypto.randomUUID()}`;
+      setTransfers((current) => [
+        {
+          id: transferId,
+          fileName: file.name,
+          totalBytes: file.size,
+          transferredBytes: 0,
+          status: "queued",
+          statusLabel: "Waiting for upload slot...",
+          targetLabel: uploadTargetLabel,
+        },
+        ...current,
+      ]);
+      void uploadTransfer(transferId, file);
     }
   }
 
@@ -126,24 +221,26 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
       eyebrow={context.eyebrow}
       title={context.heading}
       detail={<DetailsPanel item={selectedItem} />}
-      newObjectHref={canManageView ? uploadHref : archiveHref}
+      newObjectHref={canManageView ? undefined : archiveHref}
+      onNewObjectClick={canManageView ? () => setUploadOpen(true) : undefined}
       headerAction={
         canManageView ? (
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleCreateFolder}
+              onClick={() => setFolderOpen(true)}
               className="rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] shadow-[inset_0_0_0_1px_var(--color-outline)]"
             >
               New Folder
             </button>
-            <Link
-              href={uploadHref}
+            <button
+              type="button"
+              onClick={() => setUploadOpen(true)}
               className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white"
             >
               <CloudUpload size={16} />
               Upload
-            </Link>
+            </button>
           </div>
         ) : (
           <Link href={archiveHref} className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white">
@@ -151,7 +248,13 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
           </Link>
         )
       }
-      transferDrawer={<TransferDrawer transfers={context.transferQueue} />}
+      transferDrawer={
+        <TransferDrawer
+          transfers={transfers}
+          onToggleStatus={handleToggleTransfer}
+          onRemove={handleRemoveTransfer}
+        />
+      }
     >
       <section className="grid gap-7">
         {context.path.length === 0 && (context.collections.length > 0 || context.recents.length > 0) ? (
@@ -193,8 +296,9 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
             {context.items.length === 0 ? (
               <EmptyArchiveState
                 message={context.emptyStateMessage ?? "No items are available in this view."}
-                uploadHref={canManageView ? uploadHref : archiveHref}
-                onCreateFolder={canManageView ? handleCreateFolder : undefined}
+                onUpload={canManageView ? () => setUploadOpen(true) : undefined}
+                onOpenArchiveHref={canManageView ? undefined : archiveHref}
+                onCreateFolder={canManageView ? () => setFolderOpen(true) : undefined}
               />
             ) : (
               <div className="grid">
@@ -286,6 +390,25 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
           </div>
         </section>
       </section>
+
+      {canManageView ? (
+        <>
+          <UploadDialog
+            open={uploadOpen}
+            onClose={() => setUploadOpen(false)}
+            targetLabel={uploadTargetLabel}
+            transfers={transfers}
+            onFilesSelected={handleFilesSelected}
+            onRemoveTransfer={handleRemoveTransfer}
+          />
+          <NewFolderDialog
+            open={folderOpen}
+            parentLabel={uploadTargetLabel}
+            onClose={() => setFolderOpen(false)}
+            onSubmit={handleSubmitFolder}
+          />
+        </>
+      ) : null}
     </AppShell>
   );
 }
@@ -390,7 +513,7 @@ function DetailsPanel({ item }: { item: FileItem | null }) {
         <span className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-[var(--color-surface-strong)] text-[var(--color-primary)]">
           <ItemIcon kind={item.kind} fileType={item.fileType} />
         </span>
-        <h3 className="font-heading mt-6 text-2xl font-semibold tracking-[-0.04em]">{item.name}</h3>
+        <h3 className="font-heading mt-6 text-2xl font-semibold tracking-[-0.04em] break-all">{item.name}</h3>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
           {item.kind === "folder" ? "Folder" : item.fileType?.toUpperCase() ?? "Object"}
         </p>
@@ -485,11 +608,13 @@ function ItemIcon({
 
 function EmptyArchiveState({
   message,
-  uploadHref,
+  onUpload,
+  onOpenArchiveHref,
   onCreateFolder,
 }: {
   message: string;
-  uploadHref: string;
+  onUpload?: () => void;
+  onOpenArchiveHref?: string;
   onCreateFolder?: () => void;
 }) {
   return (
@@ -510,10 +635,23 @@ function EmptyArchiveState({
               New Folder
             </button>
           ) : null}
-          <Link href={uploadHref} className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white">
-            <CloudUpload size={16} />
-            {onCreateFolder ? "Upload" : "Open Archive"}
-          </Link>
+          {onUpload ? (
+            <button
+              type="button"
+              onClick={onUpload}
+              className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white"
+            >
+              <CloudUpload size={16} />
+              Upload
+            </button>
+          ) : onOpenArchiveHref ? (
+            <Link
+              href={onOpenArchiveHref}
+              className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white"
+            >
+              Open Archive
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>
