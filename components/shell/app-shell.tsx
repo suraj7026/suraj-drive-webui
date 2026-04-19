@@ -61,7 +61,7 @@ export function AppShell({
         <aside className="ambient-panel hidden w-[280px] shrink-0 rounded-[34px] p-6 lg:flex lg:flex-col">
           <div>
             <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--color-surface-strong)] text-[var(--color-primary)] shadow-[0_18px_38px_rgba(0,72,141,0.12)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--color-surface-strong)] text-[var(--color-primary)] shadow-[0_18px_38px_var(--color-primary-glow-soft)]">
                 <Sparkles size={20} />
               </div>
               <div>
@@ -74,14 +74,14 @@ export function AppShell({
               <button
                 type="button"
                 onClick={onNewObjectClick}
-                className="primary-gradient flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,95,184,0.22)]"
+                className="primary-gradient flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_var(--color-primary-glow)]"
               >
                 New Object
               </button>
             ) : (
               <Link
                 href={newObjectHref ?? `/archive/${user.bucket}`}
-                className="primary-gradient flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,95,184,0.22)]"
+                className="primary-gradient flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_var(--color-primary-glow)]"
               >
                 New Object
               </Link>

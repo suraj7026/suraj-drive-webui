@@ -29,6 +29,8 @@
   --color-scrim: rgba(15, 18, 21, 0.55);
   --color-scrollbar-thumb: rgba(98, 99, 90, 0.24);
   --color-hover-overlay: rgba(255, 255, 255, 0.55);
+  --color-primary-glow: rgba(65, 71, 36, 0.28);
+  --color-primary-glow-soft: rgba(65, 71, 36, 0.16);
 
   --gradient-body:
     radial-gradient(circle at top left, rgba(89, 95, 57, 0.08), transparent 22%),
@@ -72,6 +74,8 @@
   --color-scrim: rgba(0, 0, 0, 0.62);
   --color-scrollbar-thumb: rgba(255, 255, 255, 0.14);
   --color-hover-overlay: rgba(255, 255, 255, 0.06);
+  --color-primary-glow: rgba(192, 199, 141, 0.32);
+  --color-primary-glow-soft: rgba(192, 199, 141, 0.18);
 
   --gradient-body:
     radial-gradient(circle at top left, rgba(192, 199, 141, 0.05), transparent 28%),
