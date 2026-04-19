@@ -17,7 +17,9 @@ export function getApiBaseUrl() {
 }
 
 export function buildApiUrl(pathname: string, query?: Record<string, string | number | undefined>) {
-  const url = new URL(pathname, getApiBaseUrl());
+  const base = getApiBaseUrl();
+  const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  const url = new URL(`${base}${path}`);
 
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value === undefined) {
@@ -31,7 +33,20 @@ export function buildApiUrl(pathname: string, query?: Record<string, string | nu
 
 export async function readApiResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
-  const payload = text ? (JSON.parse(text) as unknown) : undefined;
+
+  let payload: unknown = undefined;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      const snippet = text.slice(0, 120).replace(/\s+/g, " ");
+      throw new ApiError(
+        `Non-JSON response from ${response.url} (status ${response.status}): ${snippet}`,
+        response.status,
+        text
+      );
+    }
+  }
 
   if (!response.ok) {
     const message = readErrorMessage(payload) ?? `Request failed with status ${response.status}`;
