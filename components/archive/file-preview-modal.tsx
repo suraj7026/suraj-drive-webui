@@ -10,6 +10,7 @@ import {
   getPreviewKindForItem,
   isBrowserRenderableImage,
   isPreviewable,
+  needsHeicConversion,
 } from "@/lib/utils/file-preview";
 import { cn } from "@/lib/utils/cn";
 
@@ -93,7 +94,7 @@ export function FilePreviewModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Preview of ${item.name}`}
-      className="fixed inset-0 z-50 flex flex-col"
+      className="fixed inset-0 z-50 flex flex-col overflow-hidden"
     >
       <button
         type="button"
@@ -108,12 +109,14 @@ export function FilePreviewModal({
         onDownload={() => onDownload(item)}
       />
 
-      <div className="relative flex flex-1 items-center justify-center px-6 pb-10">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center px-6 pb-6">
         {hasPrev ? (
           <NavButton direction="prev" onClick={goPrev} />
         ) : null}
 
-        <PreviewBody key={item.id} item={item} onDownload={() => onDownload(item)} />
+        <div className="relative z-0 flex h-full w-full items-center justify-center">
+          <PreviewBody key={item.id} item={item} onDownload={() => onDownload(item)} />
+        </div>
 
         {hasNext ? (
           <NavButton direction="next" onClick={goNext} />
@@ -253,6 +256,9 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
   const kind = getPreviewKindForItem(item);
 
   if (kind === "image") {
+    if (needsHeicConversion(item.name)) {
+      return <HeicImagePreview url={url} alt={item.name} onDownload={onDownload} />;
+    }
     if (!isBrowserRenderableImage(item.name)) {
       return <NonRenderableImageNotice item={item} url={url} onDownload={onDownload} />;
     }
@@ -261,7 +267,7 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
       <img
         src={url}
         alt={item.name}
-        className="relative z-0 max-h-[82vh] max-w-[92vw] rounded-[18px] object-contain shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
+        className="block max-h-full max-w-full rounded-[18px] object-contain shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
       />
     );
   }
@@ -272,14 +278,14 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
         src={url}
         controls
         autoPlay
-        className="relative z-0 max-h-[82vh] max-w-[92vw] rounded-[18px] bg-black shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
+        className="block max-h-full max-w-full rounded-[18px] bg-black shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
       />
     );
   }
 
   if (kind === "audio") {
     return (
-      <div className="relative z-0 flex w-full max-w-xl flex-col items-center gap-4 rounded-[28px] bg-white/8 px-8 py-10 text-center text-white">
+      <div className="flex w-full max-w-xl flex-col items-center gap-4 rounded-[28px] bg-white/8 px-8 py-10 text-center text-white">
         <p className="truncate text-base font-medium">{item.name}</p>
         <audio src={url} controls autoPlay className="w-full" />
       </div>
@@ -291,7 +297,7 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
       <iframe
         src={url}
         title={item.name}
-        className="relative z-0 h-[82vh] w-[92vw] max-w-[1200px] rounded-[18px] bg-white shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
+        className="block h-full w-full max-w-[1200px] rounded-[18px] bg-white shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
       />
     );
   }
@@ -301,6 +307,95 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
   }
 
   return <UnsupportedPreview item={item} onDownload={onDownload} />;
+}
+
+function HeicImagePreview({
+  url,
+  alt,
+  onDownload,
+}: {
+  url: string;
+  alt: string;
+  onDownload: () => void;
+}) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let createdUrl: string | null = null;
+
+    (async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const heicBlob = await response.blob();
+        const heic2any = (await import("heic2any")).default;
+        const result = await heic2any({ blob: heicBlob, toType: "image/jpeg", quality: 0.9 });
+        const jpegBlob = Array.isArray(result) ? result[0] : result;
+        if (cancelled) return;
+        createdUrl = URL.createObjectURL(jpegBlob);
+        setObjectUrl(createdUrl);
+      } catch (reason) {
+        if (cancelled) return;
+        setError(reason instanceof Error ? reason.message : "HEIC conversion failed.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [url]);
+
+  if (error) {
+    return (
+      <div className="max-w-md rounded-[24px] bg-white/8 px-6 py-6 text-center text-white">
+        <p className="text-base font-medium">Could not convert HEIC</p>
+        <p className="mt-2 text-sm text-white/72">{error}</p>
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
+          >
+            Open in new tab
+          </a>
+          <button
+            type="button"
+            onClick={onDownload}
+            className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
+          >
+            <ArrowDownToLine size={16} />
+            Download
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!objectUrl) {
+    return (
+      <div className="flex flex-col items-center gap-3 text-white/72">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/24 border-t-white" />
+        <p className="text-sm">Decoding HEIC...</p>
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={objectUrl}
+      alt={alt}
+      className="block max-h-full max-w-full rounded-[18px] object-contain shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
+    />
+  );
 }
 
 function NonRenderableImageNotice({
@@ -411,7 +506,7 @@ function TextPreview({
   }
 
   return (
-    <div className="relative z-0 flex h-[82vh] w-[92vw] max-w-[1100px] flex-col overflow-hidden rounded-[18px] bg-[var(--color-surface)] text-[var(--color-text)] shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
+    <div className="flex h-full w-full max-w-[1100px] flex-col overflow-hidden rounded-[18px] bg-[var(--color-surface)] text-[var(--color-text)] shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
       <pre className="m-0 flex-1 overflow-auto p-6 font-mono text-sm leading-6 whitespace-pre-wrap break-words">
         {text}
       </pre>

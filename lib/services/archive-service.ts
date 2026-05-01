@@ -27,7 +27,6 @@ export async function getArchiveContext(bucketId: string, path: string[]): Promi
     path: normalizedPath,
     currentFolderLabel: normalizedPath.at(-1) ?? "My Archive",
     collections: [],
-    recents: sortFilesByUpdatedAt(items).slice(0, 4),
     items,
     defaultSelectedId: items[0]?.id ?? null,
     transferQueue: [],
@@ -51,7 +50,6 @@ export async function getSearchContext(query: string): Promise<ArchiveContext> {
       path: [],
       currentFolderLabel: "Search",
       collections: [],
-      recents: [],
       items: [],
       defaultSelectedId: null,
       transferQueue: [],
@@ -71,7 +69,6 @@ export async function getSearchContext(query: string): Promise<ArchiveContext> {
     path: [],
     currentFolderLabel: "Search Results",
     collections: [],
-    recents: sortFilesByUpdatedAt(items).slice(0, 4),
     items,
     defaultSelectedId: items[0]?.id ?? null,
     transferQueue: [],
@@ -91,7 +88,6 @@ export async function getSectionContext(section: Exclude<SectionKey, "archive">)
     path: [],
     currentFolderLabel: sectionTitle(section),
     collections: [],
-    recents: [],
     items: [],
     defaultSelectedId: null,
     transferQueue: [],
@@ -201,12 +197,6 @@ function sectionTitle(section: Exclude<SectionKey, "archive">): string {
   switch (section) {
     case "shared":
       return "Shared";
-    case "recents":
-      return "Recents";
-    case "starred":
-      return "Starred";
-    case "vault":
-      return "Vault";
   }
 }
 
@@ -214,19 +204,7 @@ function sectionDescription(section: Exclude<SectionKey, "archive">): string {
   switch (section) {
     case "shared":
       return "Collaboration spaces will appear here once the backend exposes shared metadata.";
-    case "recents":
-      return "Recent activity needs backend-wide file history before it can be rendered accurately.";
-    case "starred":
-      return "Starred items need persisted metadata before they can be shown here.";
-    case "vault":
-      return "Vault items need a dedicated protected bucket or metadata flag from the backend.";
   }
-}
-
-function sortFilesByUpdatedAt(items: FileItem[]) {
-  return items
-    .filter((item): item is FileItem & { updatedAt: string } => item.kind === "file" && Boolean(item.updatedAt))
-    .sort((left, right) => +new Date(right.updatedAt) - +new Date(left.updatedAt));
 }
 
 function joinPath(path: string[]) {

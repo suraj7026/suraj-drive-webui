@@ -15,12 +15,6 @@ export const buckets: Bucket[] = [
     kind: "shared",
     description: "Spaces and shared collections from collaborators.",
   },
-  {
-    id: "vault",
-    name: "Vault",
-    kind: "vault",
-    description: "Sensitive documents stored in a quieter, protected area.",
-  },
 ];
 
 export const files: FileItem[] = [
@@ -71,7 +65,6 @@ export const files: FileItem[] = [
     path: [],
     owner: "Me",
     updatedAt: "2026-04-11T17:20:00.000Z",
-    vaulted: true,
     tags: ["Private"],
   },
   {
@@ -98,7 +91,6 @@ export const files: FileItem[] = [
     updatedAt: "2026-04-18T16:45:00.000Z",
     sizeBytes: 12400000,
     tags: ["Brand", "Reference"],
-    starred: true,
   },
   {
     id: "file-hero-image",
@@ -150,7 +142,6 @@ export const files: FileItem[] = [
     updatedAt: "2026-04-18T18:05:00.000Z",
     sizeBytes: 16800000,
     tags: ["Strategy", "Reference"],
-    starred: true,
   },
   {
     id: "file-hero-image-final",
@@ -204,20 +195,6 @@ export const files: FileItem[] = [
     sizeBytes: 4800000,
     tags: ["Shared"],
     shared: true,
-  },
-  {
-    id: "file-tax-summary",
-    bucketId: "vault",
-    kind: "file",
-    fileType: "pdf",
-    name: "Tax_Summary_2024.pdf",
-    slug: "Tax_Summary_2024.pdf",
-    path: [],
-    owner: "Me",
-    updatedAt: "2026-04-02T11:10:00.000Z",
-    sizeBytes: 2400000,
-    tags: ["Private", "Finance"],
-    vaulted: true,
   },
 ];
 

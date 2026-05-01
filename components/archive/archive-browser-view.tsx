@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowDownToLine,
   ArrowUpWideNarrow,
+  Check,
   ChevronRight,
   CloudUpload,
   Copy,
   Folder,
   FolderOpen,
   Image as ImageIcon,
+  Link2,
   MoreHorizontal,
   PersonStanding,
   Share2,
@@ -38,6 +40,25 @@ type ArchiveBrowserViewProps = {
   context: ArchiveContext;
 };
 
+const SORT_OPTIONS = [
+  { key: "default", label: "Default order" },
+  { key: "name-asc", label: "Name (A → Z)" },
+  { key: "name-desc", label: "Name (Z → A)" },
+  { key: "date-newest", label: "Newest first" },
+  { key: "date-oldest", label: "Oldest first" },
+  { key: "size-largest", label: "Largest first" },
+  { key: "size-smallest", label: "Smallest first" },
+];
+
+const FILTER_OPTIONS = [
+  { key: "all", label: "All items" },
+  { key: "folder", label: "Folders" },
+  { key: "file", label: "Files" },
+  { key: "image", label: "Images" },
+  { key: "pdf", label: "Documents" },
+  { key: "video", label: "Media" },
+];
+
 export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const router = useRouter();
   const controllersRef = useRef<Record<string, AbortController>>({});
@@ -49,6 +70,12 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const [folderOpen, setFolderOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FileItem | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [sortKey, setSortKey] = useState("default");
+  const [filterKind, setFilterKind] = useState("all");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const currentPrefix = joinPath(context.path);
   const archiveHref = `/archive/${context.user.bucket}`;
   const canManageView = context.section === "archive";
@@ -60,6 +87,63 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
     () => context.items.find((item) => item.id === selectedId) ?? context.items[0] ?? null,
     [context.items, selectedId]
   );
+
+  const displayItems = useMemo(() => {
+    let items = [...context.items];
+
+    if (filterKind !== "all") {
+      switch (filterKind) {
+        case "folder":
+          items = items.filter((i) => i.kind === "folder");
+          break;
+        case "file":
+          items = items.filter((i) => i.kind === "file");
+          break;
+        default:
+          items = items.filter((i) => i.kind === "file" && i.fileType === filterKind);
+          break;
+      }
+    }
+
+    if (sortKey !== "default") {
+      const compare = (a: FileItem, b: FileItem): number => {
+        switch (sortKey) {
+          case "name-asc": return a.name.localeCompare(b.name);
+          case "name-desc": return b.name.localeCompare(a.name);
+          case "date-newest": return (+new Date(b.updatedAt ?? 0)) - (+new Date(a.updatedAt ?? 0));
+          case "date-oldest": return (+new Date(a.updatedAt ?? 0)) - (+new Date(b.updatedAt ?? 0));
+          case "size-largest": return (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0);
+          case "size-smallest": return (a.sizeBytes ?? 0) - (b.sizeBytes ?? 0);
+          default: return 0;
+        }
+      };
+      const folders = items.filter((i) => i.kind === "folder").sort(compare);
+      const files = items.filter((i) => i.kind === "file").sort(compare);
+      items = [...folders, ...files];
+    }
+
+    return items;
+  }, [context.items, sortKey, filterKind]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-toolbar-dropdown]")) {
+        setSortOpen(false);
+        setFilterOpen(false);
+        setShareOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleCopyShareLink() {
+    void navigator.clipboard.writeText(window.location.href).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    });
+  }
 
   async function handleSubmitFolder(name: string) {
     setActionError(null);
@@ -209,7 +293,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
     if (item.kind !== "file") {
       return;
     }
-    const index = context.items.findIndex((entry) => entry.id === item.id);
+    const index = displayItems.findIndex((entry) => entry.id === item.id);
     if (index === -1) {
       return;
     }
@@ -306,7 +390,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
       }
     >
       <section className="grid gap-7">
-        {context.path.length === 0 && (context.collections.length > 0 || context.recents.length > 0) ? (
+        {context.path.length === 0 && context.collections.length > 0 ? (
           <CollectionsSection context={context} />
         ) : null}
 
@@ -322,9 +406,101 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <GhostAction icon={ArrowUpWideNarrow} label="Sort" />
-              <GhostAction icon={TableProperties} label="Filter" />
-              <GhostAction icon={Share2} label="Share Space" />
+              <div className="relative" data-toolbar-dropdown>
+                <GhostAction
+                  icon={ArrowUpWideNarrow}
+                  label="Sort"
+                  onClick={() => { setSortOpen((v) => !v); setFilterOpen(false); setShareOpen(false); }}
+                  active={sortKey !== "default"}
+                />
+                {sortOpen ? (
+                  <div className="absolute left-0 top-full z-50 mt-2 min-w-[200px] overflow-hidden rounded-[22px] border border-[var(--color-outline)] bg-[var(--color-surface-strong)] py-1 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                    {SORT_OPTIONS.map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => { setSortKey(option.key); setSortOpen(false); }}
+                        className={cn(
+                          "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors",
+                          sortKey === option.key
+                            ? "font-medium text-[var(--color-text)]"
+                            : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)]"
+                        )}
+                      >
+                        <Check size={14} className={cn("shrink-0", sortKey === option.key ? "opacity-100" : "opacity-0")} />
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="relative" data-toolbar-dropdown>
+                <GhostAction
+                  icon={TableProperties}
+                  label="Filter"
+                  onClick={() => { setFilterOpen((v) => !v); setSortOpen(false); setShareOpen(false); }}
+                  active={filterKind !== "all"}
+                />
+                {filterOpen ? (
+                  <div className="absolute left-0 top-full z-50 mt-2 min-w-[200px] overflow-hidden rounded-[22px] border border-[var(--color-outline)] bg-[var(--color-surface-strong)] py-1 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                    {FILTER_OPTIONS.map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => { setFilterKind(option.key); setFilterOpen(false); }}
+                        className={cn(
+                          "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors",
+                          filterKind === option.key
+                            ? "font-medium text-[var(--color-text)]"
+                            : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)]"
+                        )}
+                      >
+                        <Check size={14} className={cn("shrink-0", filterKind === option.key ? "opacity-100" : "opacity-0")} />
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="relative" data-toolbar-dropdown>
+                <GhostAction
+                  icon={shareCopied ? Check : Share2}
+                  label={shareCopied ? "Copied!" : "Share Space"}
+                  onClick={() => { setShareOpen((v) => !v); setSortOpen(false); setFilterOpen(false); }}
+                  active={shareOpen}
+                />
+                {shareOpen ? (
+                  <div className="absolute right-0 top-full z-50 mt-2 w-[340px] overflow-hidden rounded-[22px] border border-[var(--color-outline)] bg-[var(--color-surface-strong)] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-medium text-[var(--color-text)]">
+                      <Link2 size={14} />
+                      Share this space
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        aria-label="Shareable link"
+                        value={typeof window !== "undefined" ? window.location.href : ""}
+                        className="min-w-0 flex-1 rounded-full bg-[var(--color-surface-low)] px-4 py-2.5 text-xs text-[var(--color-text-muted)] outline-none shadow-[inset_0_0_0_1px_var(--color-outline)]"
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCopyShareLink}
+                        className={cn(
+                          "shrink-0 rounded-full px-4 py-2.5 text-sm font-medium transition-colors",
+                          shareCopied
+                            ? "bg-[var(--color-primary-soft)] text-[var(--color-text)]"
+                            : "primary-gradient text-white"
+                        )}
+                      >
+                        {shareCopied ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -342,34 +518,62 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
               <span className="justify-self-end">Actions</span>
             </div>
 
-            {context.items.length === 0 ? (
-              <EmptyArchiveState
-                message={context.emptyStateMessage ?? "No items are available in this view."}
-                onUpload={canManageView ? () => setUploadOpen(true) : undefined}
-                onOpenArchiveHref={canManageView ? undefined : archiveHref}
-                onCreateFolder={canManageView ? () => setFolderOpen(true) : undefined}
-              />
+            {displayItems.length === 0 ? (
+              filterKind !== "all" ? (
+                <div className="grid place-items-center px-6 py-14 text-center">
+                  <div className="max-w-md">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-[var(--color-surface-low)] text-[var(--color-primary)]">
+                      <TableProperties size={22} />
+                    </div>
+                    <h3 className="font-heading mt-5 text-2xl font-semibold tracking-[-0.04em]">No matches</h3>
+                    <p className="mt-3 text-sm leading-7 text-[var(--color-text-soft)]">No items match the current filter.</p>
+                    <button
+                      type="button"
+                      onClick={() => setFilterKind("all")}
+                      className="mt-6 rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] shadow-[inset_0_0_0_1px_var(--color-outline)]"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <EmptyArchiveState
+                  message={context.emptyStateMessage ?? "No items are available in this view."}
+                  onUpload={canManageView ? () => setUploadOpen(true) : undefined}
+                  onOpenArchiveHref={canManageView ? undefined : archiveHref}
+                  onCreateFolder={canManageView ? () => setFolderOpen(true) : undefined}
+                />
+              )
             ) : (
               <div className="grid">
-                {context.items.map((item) => {
+                {displayItems.map((item) => {
                   const href = item.kind === "folder" ? buildArchiveHref(context.bucket.id, [...context.path, item.slug]) : undefined;
 
                   return (
                     <article
                       key={item.id}
+                      onClick={() => {
+                        if (href) {
+                          router.push(href);
+                        }
+                      }}
                       className={cn(
                         "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition-colors sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:px-6 md:grid-cols-[minmax(0,1.3fr)_140px_100px_auto]",
                         selectedItem?.id === item.id
                           ? "bg-[var(--color-secondary-soft)]/88"
-                          : "hover:bg-[var(--color-surface-low)]/75"
+                          : "hover:bg-[var(--color-surface-low)]/75",
+                        href && "cursor-pointer"
                       )}
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (item.kind === "file") {
                               handleOpenPreview(item);
+                            } else if (href) {
+                              router.push(href);
                             } else {
                               setSelectedId(item.id);
                             }
@@ -393,7 +597,8 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                       <span className="hidden text-sm text-[var(--color-text-muted)] sm:block">
                         {item.sizeBytes ? formatBytes(item.sizeBytes) : "--"}
                       </span>
-                      <div className="flex items-center justify-self-end gap-1 text-[var(--color-text-soft)] sm:gap-2">
+                      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+                      <div className="flex items-center justify-self-end gap-1 text-[var(--color-text-soft)] sm:gap-2" onClick={(e) => e.stopPropagation()}>
                         {href ? (
                           <Link href={href} className="rounded-full p-2 hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)]">
                             <ChevronRight size={16} />
@@ -441,7 +646,11 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 
           <div className="flex items-center justify-between rounded-[22px] bg-[var(--color-surface-low)] px-5 py-4 text-sm text-[var(--color-text-muted)]">
             <span>Browsing live objects from your personal bucket.</span>
-            <span>{context.items.length} visible objects</span>
+            <span>
+              {filterKind !== "all"
+                ? `${displayItems.length} of ${context.items.length} visible objects`
+                : `${context.items.length} visible objects`}
+            </span>
           </div>
         </section>
       </section>
@@ -474,7 +683,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 
       <FilePreviewModal
         open={previewIndex !== null}
-        items={context.items}
+        items={displayItems}
         currentIndex={previewIndex ?? 0}
         onClose={() => setPreviewIndex(null)}
         onNavigate={(index) => {
@@ -510,7 +719,7 @@ function CollectionsSection({ context }: { context: ArchiveContext }) {
                   <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--color-surface-low)] text-[var(--color-primary)]">
                     {collection.shared ? <FolderOpen size={20} /> : <Folder size={20} />}
                   </span>
-                  <button type="button" className="rounded-full p-2 text-[var(--color-text-soft)] opacity-0 transition-opacity group-hover:opacity-100">
+                  <button type="button" aria-label={`More options for ${collection.title}`} className="rounded-full p-2 text-[var(--color-text-soft)] opacity-0 transition-opacity group-hover:opacity-100">
                     <MoreHorizontal size={16} />
                   </button>
                 </div>
@@ -526,40 +735,6 @@ function CollectionsSection({ context }: { context: ArchiveContext }) {
         </div>
       ) : null}
 
-      {context.recents.length > 0 ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
-          <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)]">Recent Artifacts</p>
-            <h2 className="font-heading mt-2 text-2xl font-semibold tracking-[-0.04em]">Fresh from the archive</h2>
-            <div className="mt-4 grid gap-3 rounded-[32px] bg-[var(--color-surface-strong)] p-4 shadow-[0_12px_32px_rgba(26,28,25,0.06)]">
-              {context.recents.map((item) => (
-                <div key={item.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[20px] bg-[var(--color-surface)] px-4 py-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[var(--color-surface-strong)] text-[var(--color-primary)]">
-                    <ItemIcon kind={item.kind} fileType={item.fileType} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[15px] font-medium">{item.name}</p>
-                    <p className="truncate text-sm text-[var(--color-text-soft)]">
-                      {item.owner}{item.updatedAt ? ` · ${formatDateLabel(item.updatedAt)}` : ""}
-                    </p>
-                  </div>
-                  <button type="button" className="rounded-full p-2 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)]">
-                    <MoreHorizontal size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="primary-gradient ambient-panel flex items-center justify-between rounded-[32px] px-5 py-5 text-white xl:min-h-full">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-white/72">Fast Add</p>
-              <p className="font-heading mt-2 text-xl font-semibold">Drop objects here to archive to this collection</p>
-            </div>
-            <CloudUpload size={30} className="shrink-0" />
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -581,7 +756,7 @@ function DetailsPanel({ item }: { item: FileItem | null }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-soft)]">Details</p>
-        <button type="button" className="rounded-full bg-[var(--color-surface-low)] p-2 text-[var(--color-text-soft)]">
+        <button type="button" aria-label="More details options" className="rounded-full bg-[var(--color-surface-low)] p-2 text-[var(--color-text-soft)]">
           <MoreHorizontal size={16} />
         </button>
       </div>
@@ -644,9 +819,28 @@ function Breadcrumbs({
   );
 }
 
-function GhostAction({ icon: Icon, label }: { icon: typeof ArrowUpWideNarrow; label: string }) {
+function GhostAction({
+  icon: Icon,
+  label,
+  onClick,
+  active,
+}: {
+  icon: typeof ArrowUpWideNarrow;
+  label: string;
+  onClick?: () => void;
+  active?: boolean;
+}) {
   return (
-    <button type="button" className="inline-flex items-center gap-2 rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm text-[var(--color-text-muted)] shadow-[inset_0_0_0_1px_var(--color-outline)] transition-colors duration-300 hover:text-[var(--color-text)]">
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm shadow-[inset_0_0_0_1px_var(--color-outline)] transition-colors duration-300",
+        active
+          ? "bg-[var(--color-primary-soft)] text-[var(--color-text)]"
+          : "bg-[var(--color-surface-low)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+      )}
+    >
       <Icon size={16} />
       {label}
     </button>

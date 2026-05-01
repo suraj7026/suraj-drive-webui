@@ -52,5 +52,5 @@ npm run build
 ## Notes
 
 - The backend must allow `http://localhost:4000` in its CORS config.
-- Shared, recents, starred, and vault screens remain placeholder views until the backend exposes dedicated endpoints for them.
+- The Shared screen remains a placeholder view until the backend exposes dedicated endpoints for it.
 - Root archive routes resolve against the authenticated user bucket returned by `GET /api/auth/me`.
