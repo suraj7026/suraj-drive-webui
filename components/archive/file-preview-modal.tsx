@@ -12,6 +12,7 @@ import {
   isPreviewable,
   needsHeicConversion,
 } from "@/lib/utils/file-preview";
+import { cacheHeicJpeg, getCachedHeicJpeg } from "@/lib/utils/heic-cache";
 import { cn } from "@/lib/utils/cn";
 
 type FilePreviewModalProps = {
@@ -192,20 +193,26 @@ function NavButton({ direction, onClick }: { direction: "prev" | "next"; onClick
 
 function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => void }) {
   const previewable = isPreviewable(item.fileType, item.name);
+  const isHeic = needsHeicConversion(item.name);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(previewable);
+  // HEIC owns its own loading lifecycle; we don't pre-fetch a presigned URL for it.
+  const [loading, setLoading] = useState<boolean>(previewable && !isHeic);
+
+  const objectKey = useMemo(
+    () => [...item.path, item.slug].filter(Boolean).join("/"),
+    [item.path, item.slug]
+  );
 
   useEffect(() => {
-    if (!previewable) {
+    if (!previewable || isHeic) {
       return;
     }
 
     let cancelled = false;
-    const key = [...item.path, item.slug].filter(Boolean).join("/");
 
     clientApiFetch<BackendPresignResponse>(
-      `/api/files/presign/download?key=${encodeURIComponent(key)}`
+      `/api/files/presign/download?key=${encodeURIComponent(objectKey)}`
     )
       .then((response) => {
         if (cancelled) return;
@@ -221,10 +228,16 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
     return () => {
       cancelled = true;
     };
-  }, [item.path, item.slug, previewable]);
+  }, [objectKey, previewable, isHeic]);
 
   if (!previewable) {
     return <UnsupportedPreview item={item} onDownload={onDownload} />;
+  }
+
+  if (isHeic) {
+    return (
+      <HeicImagePreview alt={item.name} objectKey={objectKey} onDownload={onDownload} />
+    );
   }
 
   if (loading) {
@@ -256,9 +269,6 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
   const kind = getPreviewKindForItem(item);
 
   if (kind === "image") {
-    if (needsHeicConversion(item.name)) {
-      return <HeicImagePreview url={url} alt={item.name} onDownload={onDownload} />;
-    }
     if (!isBrowserRenderableImage(item.name)) {
       return <NonRenderableImageNotice item={item} url={url} onDownload={onDownload} />;
     }
@@ -310,34 +320,63 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
 }
 
 function HeicImagePreview({
-  url,
   alt,
+  objectKey,
   onDownload,
 }: {
-  url: string;
   alt: string;
+  objectKey: string;
   onDownload: () => void;
 }) {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    let createdUrl: string | null = null;
+    let createdObjectUrl: string | null = null;
+
+    async function clientFallback(): Promise<void> {
+      // Last-resort path: fetch the original HEIC and decode in-browser.
+      // Uses the same IndexedDB cache to avoid repeating the WASM decode.
+      const presign = await clientApiFetch<BackendPresignResponse>(
+        `/api/files/presign/download?key=${encodeURIComponent(objectKey)}`
+      );
+      const heicResponse = await fetch(presign.url);
+      if (!heicResponse.ok) {
+        throw new Error(`HTTP ${heicResponse.status}`);
+      }
+      const heicBlob = await heicResponse.blob();
+      const heic2any = (await import("heic2any")).default;
+      const converted = await heic2any({ blob: heicBlob, toType: "image/jpeg", quality: 0.9 });
+      const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
+      if (cancelled) return;
+      createdObjectUrl = URL.createObjectURL(jpegBlob);
+      setImageSrc(createdObjectUrl);
+      void cacheHeicJpeg(objectKey, jpegBlob);
+    }
 
     (async () => {
       try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const heicBlob = await response.blob();
-        const heic2any = (await import("heic2any")).default;
-        const result = await heic2any({ blob: heicBlob, toType: "image/jpeg", quality: 0.9 });
-        const jpegBlob = Array.isArray(result) ? result[0] : result;
+        const cached = await getCachedHeicJpeg(objectKey);
         if (cancelled) return;
-        createdUrl = URL.createObjectURL(jpegBlob);
-        setObjectUrl(createdUrl);
+        if (cached) {
+          createdObjectUrl = URL.createObjectURL(cached);
+          setImageSrc(createdObjectUrl);
+          return;
+        }
+
+        try {
+          const preview = await clientApiFetch<BackendPresignResponse>(
+            `/api/files/preview?key=${encodeURIComponent(objectKey)}`
+          );
+          if (cancelled) return;
+          // Server-side JPEG can render directly via <img>; no extra fetch
+          // needed and no decode work on the client.
+          setImageSrc(preview.url);
+        } catch {
+          if (cancelled) return;
+          await clientFallback();
+        }
       } catch (reason) {
         if (cancelled) return;
         setError(reason instanceof Error ? reason.message : "HEIC conversion failed.");
@@ -346,11 +385,11 @@ function HeicImagePreview({
 
     return () => {
       cancelled = true;
-      if (createdUrl) {
-        URL.revokeObjectURL(createdUrl);
+      if (createdObjectUrl) {
+        URL.revokeObjectURL(createdObjectUrl);
       }
     };
-  }, [url]);
+  }, [objectKey]);
 
   if (error) {
     return (
@@ -358,14 +397,6 @@ function HeicImagePreview({
         <p className="text-base font-medium">Could not convert HEIC</p>
         <p className="mt-2 text-sm text-white/72">{error}</p>
         <div className="mt-4 flex items-center justify-center gap-2">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
-          >
-            Open in new tab
-          </a>
           <button
             type="button"
             onClick={onDownload}
@@ -379,7 +410,7 @@ function HeicImagePreview({
     );
   }
 
-  if (!objectUrl) {
+  if (!imageSrc) {
     return (
       <div className="flex flex-col items-center gap-3 text-white/72">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/24 border-t-white" />
@@ -391,7 +422,7 @@ function HeicImagePreview({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={objectUrl}
+      src={imageSrc}
       alt={alt}
       className="block max-h-full max-w-full rounded-[18px] object-contain shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
     />
