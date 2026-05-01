@@ -669,8 +669,10 @@ function ItemIcon({
     case "raw":
       return <ImageIcon size={18} />;
     case "csv":
+    case "text":
       return <TableProperties size={18} />;
     case "video":
+    case "audio":
       return <ArrowDownToLine size={18} />;
     case "pdf":
       return <PersonStanding size={18} />;

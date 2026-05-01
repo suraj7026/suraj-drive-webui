@@ -19,7 +19,7 @@ export type CollectionCard = {
   href: string;
 };
 
-export type FileType = "folder" | "image" | "raw" | "video" | "pdf" | "csv" | "other";
+export type FileType = "folder" | "image" | "raw" | "video" | "audio" | "pdf" | "csv" | "text" | "other";
 
 export type FileItem = {
   id: string;

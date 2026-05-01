@@ -157,20 +157,42 @@ function splitKey(key: string) {
 
 function inferFileType(name: string, contentType: string): FileType {
   const lowerName = name.toLowerCase();
-  if (contentType.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|heic)$/i.test(lowerName)) {
+  const ct = (contentType ?? "").toLowerCase();
+
+  if (/\.(raw|cr2|nef|arw|dng|orf|rw2|raf)$/i.test(lowerName)) {
+    return "raw";
+  }
+  if (
+    ct.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|svg|bmp|tiff?|ico|heic|heif|avif|jfif)$/i.test(lowerName)
+  ) {
     return "image";
   }
-  if (contentType.startsWith("video/") || /\.(mp4|mov|avi|mkv|webm)$/i.test(lowerName)) {
+  if (
+    ct.startsWith("video/") ||
+    /\.(mp4|mov|avi|mkv|webm|m4v|ogv|3gp|wmv|flv|mpe?g|mts)$/i.test(lowerName)
+  ) {
     return "video";
   }
-  if (contentType === "application/pdf" || lowerName.endsWith(".pdf")) {
+  if (
+    ct.startsWith("audio/") ||
+    /\.(mp3|wav|ogg|oga|m4a|flac|aac|opus|wma|aiff?)$/i.test(lowerName)
+  ) {
+    return "audio";
+  }
+  if (ct === "application/pdf" || lowerName.endsWith(".pdf")) {
     return "pdf";
   }
-  if (contentType.includes("csv") || lowerName.endsWith(".csv")) {
+  if (ct.includes("csv") || lowerName.endsWith(".csv")) {
     return "csv";
   }
-  if (/\.(raw|cr2|nef|arw|dng)$/i.test(lowerName)) {
-    return "raw";
+  if (
+    ct.startsWith("text/") ||
+    ct === "application/json" ||
+    ct === "application/xml" ||
+    /\.(txt|md|markdown|log|json|jsonl|xml|ya?ml|toml|ini|conf|env|html?|css|s?css|less|js|mjs|cjs|jsx|ts|tsx|py|rb|go|rs|java|kt|swift|c|h|cpp|hpp|cs|php|sh|bash|zsh|sql)$/i.test(lowerName)
+  ) {
+    return "text";
   }
   return "other";
 }

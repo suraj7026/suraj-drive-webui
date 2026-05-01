@@ -6,7 +6,11 @@ import { clientApiFetch } from "@/lib/api/client";
 import type { BackendPresignResponse } from "@/lib/models/backend";
 import type { FileItem } from "@/lib/models/archive";
 import { formatBytes } from "@/lib/utils/format";
-import { getPreviewKind, isPreviewable } from "@/lib/utils/file-preview";
+import {
+  getPreviewKindForItem,
+  isBrowserRenderableImage,
+  isPreviewable,
+} from "@/lib/utils/file-preview";
 import { cn } from "@/lib/utils/cn";
 
 type FilePreviewModalProps = {
@@ -184,7 +188,7 @@ function NavButton({ direction, onClick }: { direction: "prev" | "next"; onClick
 }
 
 function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => void }) {
-  const previewable = isPreviewable(item.fileType);
+  const previewable = isPreviewable(item.fileType, item.name);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(previewable);
@@ -246,9 +250,12 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
     );
   }
 
-  const kind = getPreviewKind(item.fileType);
+  const kind = getPreviewKindForItem(item);
 
   if (kind === "image") {
+    if (!isBrowserRenderableImage(item.name)) {
+      return <NonRenderableImageNotice item={item} url={url} onDownload={onDownload} />;
+    }
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -270,6 +277,15 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
     );
   }
 
+  if (kind === "audio") {
+    return (
+      <div className="relative z-0 flex w-full max-w-xl flex-col items-center gap-4 rounded-[28px] bg-white/8 px-8 py-10 text-center text-white">
+        <p className="truncate text-base font-medium">{item.name}</p>
+        <audio src={url} controls autoPlay className="w-full" />
+      </div>
+    );
+  }
+
   if (kind === "pdf") {
     return (
       <iframe
@@ -280,7 +296,132 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
     );
   }
 
+  if (kind === "text") {
+    return <TextPreview url={url} name={item.name} onDownload={onDownload} />;
+  }
+
   return <UnsupportedPreview item={item} onDownload={onDownload} />;
+}
+
+function NonRenderableImageNotice({
+  item,
+  url,
+  onDownload,
+}: {
+  item: FileItem;
+  url: string;
+  onDownload: () => void;
+}) {
+  const ext = item.name.split(".").pop()?.toUpperCase() ?? "image";
+  return (
+    <div className="relative z-0 flex max-w-md flex-col items-center gap-4 rounded-[28px] bg-white/8 px-8 py-10 text-center text-white">
+      <span className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-white/12">
+        <FileQuestion size={26} />
+      </span>
+      <div>
+        <p className="text-lg font-semibold">{ext} preview not supported</p>
+        <p className="mt-1 text-sm text-white/72">
+          Most browsers cannot render {ext} natively. Open the file directly or download it.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
+        >
+          Open in new tab
+        </a>
+        <button
+          type="button"
+          onClick={onDownload}
+          className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
+        >
+          <ArrowDownToLine size={16} />
+          Download
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const MAX_TEXT_PREVIEW_BYTES = 512 * 1024;
+
+function TextPreview({
+  url,
+  name,
+  onDownload,
+}: {
+  url: string;
+  name: string;
+  onDownload: () => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [truncated, setTruncated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const blob = await res.blob();
+        const slice = blob.slice(0, MAX_TEXT_PREVIEW_BYTES);
+        const body = await slice.text();
+        if (cancelled) return;
+        setText(body);
+        setTruncated(blob.size > MAX_TEXT_PREVIEW_BYTES);
+      })
+      .catch((reason) => {
+        if (cancelled) return;
+        setError(reason instanceof Error ? reason.message : "Failed to load text.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  if (error) {
+    return (
+      <div className="relative z-0 max-w-md rounded-[24px] bg-white/8 px-6 py-6 text-center text-white">
+        <p className="text-base font-medium">Could not load text preview</p>
+        <p className="mt-2 text-sm text-white/72">{error}</p>
+        <button
+          type="button"
+          onClick={onDownload}
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
+        >
+          <ArrowDownToLine size={16} />
+          Download instead
+        </button>
+      </div>
+    );
+  }
+
+  if (text === null) {
+    return (
+      <div className="relative z-0 flex flex-col items-center gap-3 text-white/72">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/24 border-t-white" />
+        <p className="text-sm">Loading {name}...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative z-0 flex h-[82vh] w-[92vw] max-w-[1100px] flex-col overflow-hidden rounded-[18px] bg-[var(--color-surface)] text-[var(--color-text)] shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
+      <pre className="m-0 flex-1 overflow-auto p-6 font-mono text-sm leading-6 whitespace-pre-wrap break-words">
+        {text}
+      </pre>
+      {truncated ? (
+        <div className="border-t border-[var(--color-outline)] bg-[var(--color-surface-low)] px-6 py-3 text-xs text-[var(--color-text-soft)]">
+          Showing first {Math.round(MAX_TEXT_PREVIEW_BYTES / 1024)} KB. Download for the full file.
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function UnsupportedPreview({ item, onDownload }: { item: FileItem; onDownload: () => void }) {
