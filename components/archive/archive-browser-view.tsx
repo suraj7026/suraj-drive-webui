@@ -32,6 +32,7 @@ import { TransferDrawer } from "@/components/upload/transfer-drawer";
 import { UploadDialog } from "@/components/upload/upload-dialog";
 import { NewFolderDialog } from "@/components/archive/new-folder-dialog";
 import { DeleteDialog } from "@/components/archive/delete-dialog";
+import { FilePreviewModal } from "@/components/archive/file-preview-modal";
 
 type ArchiveBrowserViewProps = {
   context: ArchiveContext;
@@ -47,6 +48,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FileItem | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const currentPrefix = joinPath(context.path);
   const archiveHref = `/archive/${context.user.bucket}`;
   const canManageView = context.section === "archive";
@@ -203,6 +205,18 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
     }
   }
 
+  function handleOpenPreview(item: FileItem) {
+    if (item.kind !== "file") {
+      return;
+    }
+    const index = context.items.findIndex((entry) => entry.id === item.id);
+    if (index === -1) {
+      return;
+    }
+    setSelectedId(item.id);
+    setPreviewIndex(index);
+  }
+
   async function handleDownload(item: FileItem) {
     setActionError(null);
 
@@ -353,7 +367,13 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                       <div className="flex min-w-0 items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => setSelectedId(item.id)}
+                          onClick={() => {
+                            if (item.kind === "file") {
+                              handleOpenPreview(item);
+                            } else {
+                              setSelectedId(item.id);
+                            }
+                          }}
                           className="flex min-w-0 items-center gap-3 text-left"
                         >
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[15px] bg-[var(--color-surface-low)] text-[var(--color-primary)]">
@@ -450,6 +470,21 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
         item={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={performDelete}
+      />
+
+      <FilePreviewModal
+        open={previewIndex !== null}
+        items={context.items}
+        currentIndex={previewIndex ?? 0}
+        onClose={() => setPreviewIndex(null)}
+        onNavigate={(index) => {
+          setPreviewIndex(index);
+          const target = context.items[index];
+          if (target) {
+            setSelectedId(target.id);
+          }
+        }}
+        onDownload={handleDownload}
       />
     </AppShell>
   );
