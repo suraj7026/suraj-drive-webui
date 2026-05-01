@@ -56,9 +56,9 @@ export function AppShell({
   }
 
   return (
-    <div className="archive-shell min-h-screen">
-      <div className="flex min-h-screen w-full gap-4 px-4 py-4 sm:px-6 xl:px-8">
-        <aside className="ambient-panel hidden w-[280px] shrink-0 rounded-[34px] p-6 lg:flex lg:flex-col">
+    <div className="archive-shell h-screen overflow-hidden">
+      <div className="flex h-full w-full gap-4 px-4 py-4 sm:px-6 xl:px-8">
+        <aside className="ambient-panel hidden w-[280px] shrink-0 overflow-y-auto rounded-[34px] p-6 lg:flex lg:flex-col">
           <div>
             <div className="mb-8 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--color-surface-strong)] text-[var(--color-primary)] shadow-[0_18px_38px_var(--color-primary-glow-soft)]">
@@ -152,8 +152,8 @@ export function AppShell({
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <header className="ambient-panel rounded-[34px] px-5 py-4 sm:px-7">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+          <header className="ambient-panel shrink-0 rounded-[34px] px-5 py-4 sm:px-7">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex items-start justify-between gap-3 xl:block">
                 <div>
@@ -187,12 +187,12 @@ export function AppShell({
             </div>
           </header>
 
-          <div className="grid min-h-[calc(100vh-9rem)] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <main className="ambient-panel min-w-0 rounded-[36px] px-5 py-5 sm:px-8 sm:py-7">
+          <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <main className="ambient-panel min-h-0 min-w-0 overflow-y-auto rounded-[36px] px-5 py-5 sm:px-8 sm:py-7">
               {children}
             </main>
             {detail ? (
-              <aside className="ambient-panel hidden rounded-[36px] px-6 py-7 xl:block">
+              <aside className="ambient-panel hidden min-h-0 overflow-y-auto rounded-[36px] px-6 py-7 xl:block">
                 {detail}
               </aside>
             ) : null}
