@@ -16,8 +16,8 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
   const [open, setOpen] = useState(true);
 
   const summary = useMemo(() => {
-    const active = transfers.filter((transfer) => transfer.status === "uploading").length;
-    return { active, total: transfers.length };
+    const done = transfers.filter((transfer) => transfer.status === "done").length;
+    return { done, total: transfers.length };
   }, [transfers]);
 
   if (transfers.length === 0) {
@@ -41,7 +41,7 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
               Transfers
             </span>
             <span className="font-heading mt-0.5 block truncate text-sm font-semibold tracking-[-0.02em]">
-              {summary.active} active of {summary.total}
+              {summary.done} of {summary.total} uploaded
             </span>
           </span>
         </span>
