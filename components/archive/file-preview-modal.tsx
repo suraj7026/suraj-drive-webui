@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { ArrowDownToLine, ChevronLeft, ChevronRight, FileQuestion, X } from "lucide-react";
 import { clientApiFetch } from "@/lib/api/client";
 import type { BackendPresignResponse } from "@/lib/models/backend";
@@ -33,6 +34,11 @@ export function FilePreviewModal({
   onDownload,
 }: FilePreviewModalProps) {
   const item = items[currentIndex] ?? null;
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false
+  );
 
   const previewableIndices = useMemo(
     () => items.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.kind === "file"),
@@ -77,20 +83,23 @@ export function FilePreviewModal({
     }
 
     document.addEventListener("keydown", handleKey);
+    const originalHtmlOverflow = document.documentElement.style.overflow;
     const originalOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", handleKey);
+      document.documentElement.style.overflow = originalHtmlOverflow;
       document.body.style.overflow = originalOverflow;
     };
   }, [open, onClose, goPrev, goNext]);
 
-  if (!open || !item) {
+  if (!open || !item || !mounted) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -123,7 +132,8 @@ export function FilePreviewModal({
           <NavButton direction="next" onClick={goNext} />
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

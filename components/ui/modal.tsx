@@ -1,6 +1,7 @@
 "use client";
 
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -14,6 +15,12 @@ type ModalProps = {
 };
 
 export function Modal({ open, onClose, title, description, children, className }: ModalProps) {
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false
+  );
+
   useEffect(() => {
     if (!open) {
       return;
@@ -26,20 +33,23 @@ export function Modal({ open, onClose, title, description, children, className }
     }
 
     document.addEventListener("keydown", handleKey);
+    const originalHtmlOverflow = document.documentElement.style.overflow;
     const originalOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", handleKey);
+      document.documentElement.style.overflow = originalHtmlOverflow;
       document.body.style.overflow = originalOverflow;
     };
   }, [open, onClose]);
 
-  if (!open) {
+  if (!open || !mounted) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -79,6 +89,7 @@ export function Modal({ open, onClose, title, description, children, className }
         </div>
         <div className="mt-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
