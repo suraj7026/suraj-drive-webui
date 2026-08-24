@@ -80,7 +80,7 @@ export function AppShell({
               </button>
             ) : (
               <Link
-                href={newObjectHref ?? `/archive/${user.bucket}`}
+                href={newObjectHref ?? `/archive/${user.drive_id}`}
                 className="primary-gradient flex w-full items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_var(--color-primary-glow)]"
               >
                 New Object
@@ -92,7 +92,7 @@ export function AppShell({
             {navItems.map((item) => {
               const active = item.match(pathname);
               const Icon = item.icon;
-              const href = item.href === "/archive/my-archive" ? `/archive/${user.bucket}` : item.href;
+              const href = item.href === "/archive/my-archive" ? `/archive/${user.drive_id}` : item.href;
 
               return (
                 <Link

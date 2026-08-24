@@ -77,7 +77,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const currentPrefix = joinPath(context.path);
-  const archiveHref = `/archive/${context.user.bucket}`;
+  const archiveHref = `/archive/${context.user.drive_id}`;
   const canManageView = context.section === "archive";
   const uploadTargetLabel = currentPrefix
     ? `My Archive / ${currentPrefix}`
@@ -229,6 +229,11 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                 statusLabel: `${formatBytes(loadedBytes)} of ${formatBytes(file.size)} uploaded`,
               });
             },
+          });
+
+          await clientApiFetch("/api/files/upload/complete", {
+            method: "POST",
+            body: JSON.stringify({ key: presign.key }),
           });
 
           updateTransfer(transferId, {
@@ -597,7 +602,6 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                       <span className="hidden text-sm text-[var(--color-text-muted)] sm:block">
                         {item.sizeBytes ? formatBytes(item.sizeBytes) : "--"}
                       </span>
-                      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                       <div className="flex items-center justify-self-end gap-1 text-[var(--color-text-soft)] sm:gap-2" onClick={(e) => e.stopPropagation()}>
                         {href ? (
                           <Link href={href} className="rounded-full p-2 hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)]">
@@ -645,7 +649,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
           </div>
 
           <div className="flex items-center justify-between rounded-[22px] bg-[var(--color-surface-low)] px-5 py-4 text-sm text-[var(--color-text-muted)]">
-            <span>Browsing live objects from your personal bucket.</span>
+            <span>Browsing live files from your personal drive.</span>
             <span>
               {filterKind !== "all"
                 ? `${displayItems.length} of ${context.items.length} visible objects`
@@ -665,21 +669,21 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
             onFilesSelected={handleFilesSelected}
             onRemoveTransfer={handleRemoveTransfer}
           />
-          <NewFolderDialog
+          {folderOpen ? <NewFolderDialog
             open={folderOpen}
             parentLabel={uploadTargetLabel}
             onClose={() => setFolderOpen(false)}
             onSubmit={handleSubmitFolder}
-          />
+          /> : null}
         </>
       ) : null}
 
-      <DeleteDialog
+      {deleteTarget ? <DeleteDialog
         open={deleteTarget !== null}
         item={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={performDelete}
-      />
+      /> : null}
 
       <FilePreviewModal
         open={previewIndex !== null}
@@ -688,7 +692,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
         onClose={() => setPreviewIndex(null)}
         onNavigate={(index) => {
           setPreviewIndex(index);
-          const target = context.items[index];
+          const target = displayItems[index];
           if (target) {
             setSelectedId(target.id);
           }

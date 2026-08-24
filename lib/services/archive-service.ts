@@ -4,26 +4,26 @@ import { titleFromSegments } from "@/lib/utils/archive-path";
 import { serverApiFetch } from "@/lib/api/server";
 import { requireCurrentUser } from "@/lib/services/auth-service";
 
-const archiveDescription = "Private objects stored in your personal bucket.";
+const archiveDescription = "Private files stored in your personal drive.";
 
 export async function getArchiveContext(bucketId: string, path: string[]): Promise<ArchiveContext | null> {
   const user = await requireCurrentUser();
   const normalizedPath = path.filter(Boolean);
 
-  if (bucketId !== user.bucket) {
+  if (bucketId !== user.drive_id) {
     return null;
   }
 
   const prefix = joinPath(normalizedPath);
   const response = await serverApiFetch<BackendListResponse>("/api/files" + toQueryString({ prefix }));
-  const items = mapListingItems(response, user.bucket, user.name, normalizedPath);
+  const items = mapListingItems(response, user.drive_id, user.name, normalizedPath);
 
   return {
     user,
     section: "archive" as const,
     eyebrow: normalizedPath.length === 0 ? "The Archive" : `My Archive / ${normalizedPath.join(" / ")}`,
     heading: normalizedPath.length === 0 ? "My Archive" : titleFromSegments(normalizedPath),
-    bucket: buildBucket(user.bucket, "archive", archiveDescription),
+    bucket: buildBucket(user.drive_id, "archive", archiveDescription),
     path: normalizedPath,
     currentFolderLabel: normalizedPath.at(-1) ?? "My Archive",
     collections: [],
@@ -31,7 +31,7 @@ export async function getArchiveContext(bucketId: string, path: string[]): Promi
     defaultSelectedId: items[0]?.id ?? null,
     transferQueue: [],
     emptyStateMessage: normalizedPath.length === 0
-      ? "Upload a file or create a folder to start filling this bucket."
+      ? "Upload a file or create a folder to start filling this drive."
       : "This folder is empty.",
   };
 }
@@ -46,26 +46,26 @@ export async function getSearchContext(query: string): Promise<ArchiveContext> {
       section: "archive" as const,
       eyebrow: "Archive Search",
       heading: "Search the archive",
-      bucket: buildBucket(user.bucket, "archive", archiveDescription),
+      bucket: buildBucket(user.drive_id, "archive", archiveDescription),
       path: [],
       currentFolderLabel: "Search",
       collections: [],
       items: [],
       defaultSelectedId: null,
       transferQueue: [],
-      emptyStateMessage: "Enter a file name in the search bar to query your bucket.",
+      emptyStateMessage: "Enter a file name in the search bar to search your drive.",
     };
   }
 
   const response = await serverApiFetch<BackendSearchResponse>("/api/search" + toQueryString({ q: trimmedQuery }));
-  const items = response.results.map((file, index) => mapFile(file, user.bucket, user.name, index));
+  const items = response.results.map((file) => mapFile(file, user.drive_id, user.name));
 
   return {
     user,
     section: "archive" as const,
     eyebrow: "Archive Search",
     heading: `Results for \"${trimmedQuery}\"`,
-    bucket: buildBucket(user.bucket, "archive", archiveDescription),
+    bucket: buildBucket(user.drive_id, "archive", archiveDescription),
     path: [],
     currentFolderLabel: "Search Results",
     collections: [],
@@ -84,7 +84,7 @@ export async function getSectionContext(section: Exclude<SectionKey, "archive">)
     section,
     eyebrow: "Backend Coverage",
     heading: sectionTitle(section),
-    bucket: buildBucket(user.bucket, section, sectionDescription(section)),
+    bucket: buildBucket(user.drive_id, section, sectionDescription(section)),
     path: [],
     currentFolderLabel: sectionTitle(section),
     collections: [],
@@ -92,7 +92,7 @@ export async function getSectionContext(section: Exclude<SectionKey, "archive">)
     defaultSelectedId: null,
     transferQueue: [],
     emptyStateMessage:
-      "The current Go backend exposes personal bucket listing, uploads, downloads, copies, deletes, and search. This view needs dedicated backend metadata before it can show real content.",
+      "This view is waiting for its dedicated metadata-backed API before it can show real content.",
   };
 }
 
@@ -106,14 +106,14 @@ function buildBucket(id: string, kind: SectionKey, description: string): Bucket 
 }
 
 function mapListingItems(response: BackendListResponse, bucketId: string, owner: string, path: string[]) {
-  const folders = response.folders.map((folder, index) => mapFolder(folder, bucketId, owner, path, index));
-  const files = response.files.map((file, index) => mapFile(file, bucketId, owner, index + folders.length));
+  const folders = response.folders.map((folder) => mapFolder(folder, bucketId, owner, path));
+  const files = response.files.map((file) => mapFile(file, bucketId, owner));
   return [...folders, ...files];
 }
 
-function mapFolder(folder: BackendFolderEntry, bucketId: string, owner: string, path: string[], index: number): FileItem {
+function mapFolder(folder: BackendFolderEntry, bucketId: string, owner: string, path: string[]): FileItem {
   return {
-    id: `folder:${folder.prefix}:${index}`,
+    id: folder.id,
     bucketId,
     kind: "folder",
     fileType: "folder",
@@ -125,11 +125,11 @@ function mapFolder(folder: BackendFolderEntry, bucketId: string, owner: string, 
   };
 }
 
-function mapFile(file: BackendFileObject, bucketId: string, owner: string, index: number): FileItem {
+function mapFile(file: BackendFileObject, bucketId: string, owner: string): FileItem {
   const segments = splitKey(file.key);
 
   return {
-    id: `file:${file.key}:${index}`,
+    id: file.id,
     bucketId,
     kind: "file",
     fileType: inferFileType(file.name, file.content_type),

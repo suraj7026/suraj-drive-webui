@@ -1,14 +1,14 @@
 # Drive WebUI
 
-Next.js 16 frontend for the Drive archive UI. It connects to the [Go backend](https://github.com/suraj7026/suraj-drive-api) for:
+Next.js 16.3 frontend for the Drive UI. It connects to the [Go backend](https://github.com/suraj7026/suraj-drive-api) for:
 
 - Google login and session lookup
-- Bucket browsing
+- Metadata-backed drive browsing
 - Search
 - Folder creation
 - File upload via presigned URLs
 - File download via presigned URLs
-- File copy and delete
+- File copy and soft trash
 
 ## Prerequisites
 
@@ -53,4 +53,4 @@ npm run build
 
 - The backend must allow `http://localhost:4000` in its CORS config.
 - The Shared screen remains a placeholder view until the backend exposes dedicated endpoints for it.
-- Root archive routes resolve against the authenticated user bucket returned by `GET /api/auth/me`.
+- Root archive routes resolve against the authenticated user's stable `drive_id` returned by `GET /api/auth/me`; storage bucket names stay server-side.

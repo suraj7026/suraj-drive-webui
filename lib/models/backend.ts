@@ -8,6 +8,7 @@ export type BackendPagination = {
 };
 
 export type BackendFileObject = {
+  id: string;
   key: string;
   name: string;
   size: number;
@@ -17,6 +18,7 @@ export type BackendFileObject = {
 };
 
 export type BackendFolderEntry = {
+  id: string;
   prefix: string;
   name: string;
 };
