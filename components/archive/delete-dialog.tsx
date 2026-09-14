@@ -62,7 +62,7 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
               <p className="mt-0.5 text-xs text-[var(--color-text-soft)]">
                 {isFolder
                   ? "The folder and everything inside it will move to trash."
-                  : `${item.sizeBytes ? formatBytes(item.sizeBytes) : "Unknown size"} \u00b7 ${item.owner}`}
+                  : `${item.sizeBytes !== undefined ? formatBytes(item.sizeBytes) : "Unknown size"} \u00b7 ${item.owner}`}
               </p>
             </div>
           </div>

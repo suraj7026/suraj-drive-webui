@@ -21,6 +21,13 @@ type UploadOptions = {
   signal?: AbortSignal;
 };
 
+type BlobUploadOptions = {
+  url: string;
+  data: Blob;
+  onProgress?: (loadedBytes: number) => void;
+  signal?: AbortSignal;
+};
+
 export class UploadError extends Error {
   status: number;
   code?: string;
@@ -38,6 +45,10 @@ export class UploadError extends Error {
 }
 
 export function uploadFileWithProgress({ url, file, onProgress, signal }: UploadOptions) {
+  return uploadBlobWithProgress({ url, data: file, onProgress, signal });
+}
+
+export function uploadBlobWithProgress({ url, data, onProgress, signal }: BlobUploadOptions) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
@@ -85,10 +96,10 @@ export function uploadFileWithProgress({ url, file, onProgress, signal }: Upload
     signal?.addEventListener("abort", abortUpload, { once: true });
 
     xhr.open("PUT", url);
-    if (file.type) {
-      xhr.setRequestHeader("Content-Type", file.type);
+    if (data.type) {
+      xhr.setRequestHeader("Content-Type", data.type);
     }
-    xhr.send(file);
+    xhr.send(data);
   });
 }
 
