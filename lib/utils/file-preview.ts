@@ -7,7 +7,7 @@ const VIDEO_EXT = /\.(mp4|mov|avi|mkv|webm|m4v|ogv|3gp|wmv|flv|mpe?g|mts)$/i;
 const AUDIO_EXT = /\.(mp3|wav|ogg|oga|m4a|flac|aac|opus|wma|aiff?)$/i;
 const TEXT_EXT = /\.(txt|md|markdown|log|json|jsonl|xml|ya?ml|toml|ini|conf|env|html?|css|s?css|less|js|mjs|cjs|jsx|ts|tsx|py|rb|go|rs|java|kt|swift|c|h|cpp|hpp|cs|php|sh|bash|zsh|sql|csv)$/i;
 
-// HEIC/HEIF need client-side conversion via heic2any before <img> can render them.
+// HEIC/HEIF use the server's bounded, version-aware preview worker.
 const HEIC_EXT = /\.(heic|heif)$/i;
 // Image formats no browser/library combo can reasonably render in <img> (TIFF, camera raw).
 const NON_RENDERABLE_IMAGE_EXT = /\.(tiff?|cr2|nef|arw|dng|orf|rw2|raf|raw)$/i;

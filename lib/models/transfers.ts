@@ -11,8 +11,19 @@ export type TransferItem = {
   status: TransferStatus;
   statusLabel: string;
   targetLabel: string;
+	targetPrefix?: string;
+	targetParentId?: string;
   objectKey?: string;
   errorMessage?: string;
+  resumable?: boolean;
+	uploadId?: string;
+	canResume?: boolean;
+	uploadMode?: "single" | "multipart";
+	partSize?: number;
+	uploadedParts?: Array<{ part_number: number; etag: string; size: number }>;
+	mimeType?: string;
+	conflictMode?: "keep_both" | "new_version";
+	expectedSHA256?: string;
 };
 
 export type UploadScreenData = {

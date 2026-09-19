@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { createPortal } from "react-dom";
 import { ArrowDownToLine, ChevronLeft, ChevronRight, FileQuestion, X } from "lucide-react";
 import { clientApiFetch } from "@/lib/api/client";
-import type { BackendPresignResponse } from "@/lib/models/backend";
+import { fetchTextPreview, MAX_TEXT_PREVIEW_BYTES } from "@/lib/api/text-preview";
+import type { BackendPresignResponse, BackendPreviewResponse } from "@/lib/models/backend";
 import type { FileItem } from "@/lib/models/archive";
 import { formatBytes } from "@/lib/utils/format";
 import {
@@ -13,8 +14,8 @@ import {
   isPreviewable,
   needsHeicConversion,
 } from "@/lib/utils/file-preview";
-import { cacheHeicJpeg, getCachedHeicJpeg } from "@/lib/utils/heic-cache";
 import { cn } from "@/lib/utils/cn";
+import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
 
 type FilePreviewModalProps = {
   open: boolean;
@@ -39,6 +40,7 @@ export function FilePreviewModal({
     () => true,
     () => false
   );
+  const dialogRef = useDialogFocus(open && mounted, onClose);
 
   const previewableIndices = useMemo(
     () => items.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.kind === "file"),
@@ -69,10 +71,6 @@ export function FilePreviewModal({
     }
 
     function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
       if (event.key === "ArrowLeft") {
         goPrev();
         return;
@@ -104,10 +102,13 @@ export function FilePreviewModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Preview of ${item.name}`}
+      ref={dialogRef}
+      tabIndex={-1}
       className="fixed inset-0 z-50 flex flex-col overflow-hidden"
     >
       <button
         type="button"
+        tabIndex={-1}
         aria-label="Close preview"
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-[var(--color-scrim)] backdrop-blur-md"
@@ -147,7 +148,7 @@ function PreviewTopBar({
   onDownload: () => void;
 }) {
   const typeLabel = item.fileType ? item.fileType.toUpperCase() : "OBJECT";
-  const sizeLabel = item.sizeBytes ? formatBytes(item.sizeBytes) : null;
+  const sizeLabel = item.sizeBytes !== undefined ? formatBytes(item.sizeBytes) : null;
 
   return (
     <div className="relative z-10 flex items-center justify-between gap-4 px-6 py-5 text-white">
@@ -165,6 +166,7 @@ function PreviewTopBar({
       <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
+          data-autofocus
           onClick={onDownload}
           className="inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-2 text-sm font-medium text-white hover:bg-white/20"
         >
@@ -209,11 +211,6 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
   // HEIC owns its own loading lifecycle; we don't pre-fetch a presigned URL for it.
   const [loading, setLoading] = useState<boolean>(previewable && !isHeic);
 
-  const objectKey = useMemo(
-    () => [...item.path, item.slug].filter(Boolean).join("/"),
-    [item.path, item.slug]
-  );
-
   useEffect(() => {
     if (!previewable || isHeic) {
       return;
@@ -222,7 +219,7 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
     let cancelled = false;
 
     clientApiFetch<BackendPresignResponse>(
-      `/api/files/presign/download?key=${encodeURIComponent(objectKey)}`
+      `/api/items/${encodeURIComponent(item.id)}/preview`
     )
       .then((response) => {
         if (cancelled) return;
@@ -238,7 +235,7 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
     return () => {
       cancelled = true;
     };
-  }, [objectKey, previewable, isHeic]);
+  }, [item.id, previewable, isHeic]);
 
   if (!previewable) {
     return <UnsupportedPreview item={item} onDownload={onDownload} />;
@@ -246,7 +243,7 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
 
   if (isHeic) {
     return (
-      <HeicImagePreview alt={item.name} objectKey={objectKey} onDownload={onDownload} />
+      <HeicImagePreview alt={item.name} itemId={item.id} onDownload={onDownload} />
     );
   }
 
@@ -317,13 +314,15 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
       <iframe
         src={url}
         title={item.name}
+        sandbox=""
+        referrerPolicy="no-referrer"
         className="block h-full w-full max-w-[1200px] rounded-[18px] bg-white shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
       />
     );
   }
 
   if (kind === "text") {
-    return <TextPreview url={url} name={item.name} onDownload={onDownload} />;
+    return <TextPreview key={url} url={url} name={item.name} onDownload={onDownload} />;
   }
 
   return <UnsupportedPreview item={item} onDownload={onDownload} />;
@@ -331,11 +330,11 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
 
 function HeicImagePreview({
   alt,
-  objectKey,
+  itemId,
   onDownload,
 }: {
   alt: string;
-  objectKey: string;
+  itemId: string;
   onDownload: () => void;
 }) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -343,50 +342,21 @@ function HeicImagePreview({
 
   useEffect(() => {
     let cancelled = false;
-    let createdObjectUrl: string | null = null;
-
-    async function clientFallback(): Promise<void> {
-      // Last-resort path: fetch the original HEIC and decode in-browser.
-      // Uses the same IndexedDB cache to avoid repeating the WASM decode.
-      const presign = await clientApiFetch<BackendPresignResponse>(
-        `/api/files/presign/download?key=${encodeURIComponent(objectKey)}`
-      );
-      const heicResponse = await fetch(presign.url);
-      if (!heicResponse.ok) {
-        throw new Error(`HTTP ${heicResponse.status}`);
-      }
-      const heicBlob = await heicResponse.blob();
-      const heic2any = (await import("heic2any")).default;
-      const converted = await heic2any({ blob: heicBlob, toType: "image/jpeg", quality: 0.9 });
-      const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
-      if (cancelled) return;
-      createdObjectUrl = URL.createObjectURL(jpegBlob);
-      setImageSrc(createdObjectUrl);
-      void cacheHeicJpeg(objectKey, jpegBlob);
-    }
 
     (async () => {
       try {
-        const cached = await getCachedHeicJpeg(objectKey);
-        if (cancelled) return;
-        if (cached) {
-          createdObjectUrl = URL.createObjectURL(cached);
-          setImageSrc(createdObjectUrl);
-          return;
-        }
-
-        try {
-          const preview = await clientApiFetch<BackendPresignResponse>(
-            `/api/files/preview?key=${encodeURIComponent(objectKey)}`
+				for (let attempt = 0; attempt < 60; attempt += 1) {
+					const preview = await clientApiFetch<BackendPreviewResponse>(
+            `/api/items/${encodeURIComponent(itemId)}/preview`
           );
           if (cancelled) return;
-          // Server-side JPEG can render directly via <img>; no extra fetch
-          // needed and no decode work on the client.
-          setImageSrc(preview.url);
-        } catch {
-          if (cancelled) return;
-          await clientFallback();
-        }
+					if (preview.status === "ready" && preview.url) {
+						setImageSrc(preview.url);
+						return;
+					}
+					await waitForPreview((preview.retry_after ?? 2) * 1000);
+				}
+				throw new Error("Preview generation timed out. Try again later.");
       } catch (reason) {
         if (cancelled) return;
         setError(reason instanceof Error ? reason.message : "HEIC conversion failed.");
@@ -395,11 +365,8 @@ function HeicImagePreview({
 
     return () => {
       cancelled = true;
-      if (createdObjectUrl) {
-        URL.revokeObjectURL(createdObjectUrl);
-      }
     };
-  }, [objectKey]);
+  }, [itemId]);
 
   if (error) {
     return (
@@ -437,6 +404,10 @@ function HeicImagePreview({
       className="block max-h-full max-w-full rounded-[18px] object-contain shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
     />
   );
+}
+
+function waitForPreview(milliseconds: number) {
+	return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function NonRenderableImageNotice({
@@ -482,8 +453,6 @@ function NonRenderableImageNotice({
   );
 }
 
-const MAX_TEXT_PREVIEW_BYTES = 512 * 1024;
-
 function TextPreview({
   url,
   name,
@@ -498,25 +467,24 @@ function TextPreview({
   const [truncated, setTruncated] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    fetch(url)
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const blob = await res.blob();
-        const slice = blob.slice(0, MAX_TEXT_PREVIEW_BYTES);
-        const body = await slice.text();
-        if (cancelled) return;
-        setText(body);
-        setTruncated(blob.size > MAX_TEXT_PREVIEW_BYTES);
+    const controller = new AbortController();
+    let active = true;
+    const timeout = setTimeout(() => controller.abort(new DOMException("Text preview timed out.", "TimeoutError")), 30_000);
+    fetchTextPreview(url, controller.signal)
+      .then((result) => {
+        if (!active || controller.signal.aborted) return;
+        setText(result.text);
+        setTruncated(result.truncated);
       })
       .catch((reason) => {
-        if (cancelled) return;
+        if (!active || (controller.signal.aborted && controller.signal.reason?.name !== "TimeoutError")) return;
         setError(reason instanceof Error ? reason.message : "Failed to load text.");
-      });
+      })
+      .finally(() => clearTimeout(timeout));
     return () => {
-      cancelled = true;
+      active = false;
+      clearTimeout(timeout);
+      controller.abort();
     };
   }, [url]);
 
@@ -561,7 +529,7 @@ function TextPreview({
 }
 
 function UnsupportedPreview({ item, onDownload }: { item: FileItem; onDownload: () => void }) {
-  const sizeLabel = item.sizeBytes ? formatBytes(item.sizeBytes) : "Unknown size";
+  const sizeLabel = item.sizeBytes !== undefined ? formatBytes(item.sizeBytes) : "Unknown size";
   const typeLabel = item.fileType ? item.fileType.toUpperCase() : "OBJECT";
 
   return (
