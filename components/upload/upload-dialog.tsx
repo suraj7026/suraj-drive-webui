@@ -12,7 +12,7 @@ type UploadDialogProps = {
   onClose: () => void;
   targetLabel: string;
   transfers: TransferItem[];
-  onFilesSelected: (files: FileList | null) => void;
+  onFilesSelected: (files: FileList | null, conflictMode: "keep_both" | "new_version") => void;
   onRemoveTransfer: (id: string) => void;
 };
 
@@ -25,7 +25,9 @@ export function UploadDialog({
   onRemoveTransfer,
 }: UploadDialogProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+	const folderInputRef = useRef<HTMLInputElement | null>(null);
   const [dropActive, setDropActive] = useState(false);
+	const [conflictMode, setConflictMode] = useState<"keep_both" | "new_version">("keep_both");
 
   return (
     <Modal
@@ -43,7 +45,7 @@ export function UploadDialog({
         onDrop={(event) => {
           event.preventDefault();
           setDropActive(false);
-          onFilesSelected(event.dataTransfer.files);
+          onFilesSelected(event.dataTransfer.files, conflictMode);
         }}
         className={cn(
           "rounded-[24px] bg-[var(--color-surface-strong)] px-6 py-10 text-center shadow-[inset_0_0_0_1px_var(--color-outline)] transition",
@@ -65,20 +67,36 @@ export function UploadDialog({
           aria-label="Choose files to upload"
           className="hidden"
           onChange={(event) => {
-            onFilesSelected(event.target.files);
+            onFilesSelected(event.target.files, conflictMode);
             if (inputRef.current) {
               inputRef.current.value = "";
             }
           }}
         />
+		<input
+			ref={folderInputRef}
+			type="file"
+			multiple
+			{...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+			aria-label="Choose a folder to upload"
+			className="hidden"
+			onChange={(event) => {
+				onFilesSelected(event.target.files, conflictMode);
+				if (folderInputRef.current) folderInputRef.current.value = "";
+			}}
+		/>
 
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="primary-gradient mt-6 rounded-full px-5 py-3 text-sm font-semibold text-white"
-        >
-          Browse local files
-        </button>
+		<div className="mt-6 flex flex-wrap justify-center gap-2">
+			<button type="button" onClick={() => inputRef.current?.click()} className="primary-gradient rounded-full px-5 py-3 text-sm font-semibold text-white">Browse files</button>
+			<button type="button" onClick={() => folderInputRef.current?.click()} className="rounded-full bg-[var(--color-surface-low)] px-5 py-3 text-sm font-semibold text-[var(--color-text)]">Upload folder</button>
+		</div>
+		<div className="mx-auto mt-5 grid max-w-sm gap-2 text-left">
+			<label htmlFor="upload-conflict-mode" className="text-xs font-medium text-[var(--color-text-muted)]">If a file has the same name</label>
+			<select id="upload-conflict-mode" value={conflictMode} onChange={(event) => setConflictMode(event.target.value as "keep_both" | "new_version")} className="rounded-[14px] bg-[var(--color-surface-low)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+				<option value="keep_both">Keep both files</option>
+				<option value="new_version">Upload as a new version</option>
+			</select>
+		</div>
       </div>
 
       {transfers.length > 0 ? (

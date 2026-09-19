@@ -7,8 +7,15 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: drive-webui-production
+  cancel-in-progress: false
+
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
   build-and-deploy:
+    needs: verify
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
@@ -25,16 +32,54 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/suraj7026/drive-webui:latest
+          tags: |
+            ghcr.io/suraj7026/drive-webui:${{ github.sha }}
+            ghcr.io/suraj7026/drive-webui:latest
           build-args: |
             NEXT_PUBLIC_API_URL=https://drive.sudarshanrajagopalan.one/drive-api
 
       - name: Local Deploy
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
+          set -Eeuo pipefail
           mkdir -p ~/drive/web
           cd ~/drive/web
 
+          rollback_deploy() {
+            echo "Deployment failed; restoring the previous WebUI configuration"
+            if [ -f .env.rollback ] && [ -f docker-compose.yml.rollback ]; then
+              mv .env.rollback .env
+              mv docker-compose.yml.rollback docker-compose.yml
+              docker compose up -d || true
+            fi
+          }
+          trap rollback_deploy ERR
+
+          if [ -f .env ] && [ -f docker-compose.yml ]; then
+            cp .env .env.rollback
+            cp docker-compose.yml docker-compose.yml.rollback
+          fi
+
           cp "$GITHUB_WORKSPACE/deploy/docker-compose.yml" ./docker-compose.yml
+          printf '%s\n' "IMAGE_TAG=${IMAGE_TAG}" > .env
+          chmod 600 .env
 
           docker compose pull
           docker compose up -d
+
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:4000/login >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" != true ]; then
+            docker compose logs --tail=200
+            false
+          fi
+
+          trap - ERR
+          rm -f .env.rollback docker-compose.yml.rollback
