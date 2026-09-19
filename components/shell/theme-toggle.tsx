@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { applyTheme, persistTheme, readStoredTheme, readSystemTheme, type Theme } from "@/lib/theme/theme";
 import { cn } from "@/lib/utils/cn";
@@ -10,18 +10,13 @@ type ThemeToggleProps = {
 };
 
 export function ThemeToggle({ className }: ThemeToggleProps) {
-  const [theme, setTheme] = useState<Theme | null>(null);
-
-  useEffect(() => {
-    const initial = readStoredTheme() ?? readSystemTheme();
-    setTheme(initial);
-  }, []);
+  const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot);
 
   function toggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
     applyTheme(next);
     persistTheme(next);
+    window.dispatchEvent(new Event("drive-theme-change"));
   }
 
   const isDark = theme === "dark";
@@ -58,4 +53,24 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       </span>
     </button>
   );
+}
+
+function subscribeToTheme(onStoreChange: () => void): () => void {
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener("drive-theme-change", onStoreChange);
+  mediaQuery.addEventListener("change", onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener("drive-theme-change", onStoreChange);
+    mediaQuery.removeEventListener("change", onStoreChange);
+  };
+}
+
+function getThemeSnapshot(): Theme {
+  return readStoredTheme() ?? readSystemTheme();
+}
+
+function getServerThemeSnapshot(): Theme {
+  return "light";
 }
