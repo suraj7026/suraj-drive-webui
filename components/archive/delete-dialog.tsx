@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2, TriangleAlert } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { formatBytes } from "@/lib/utils/format";
@@ -16,6 +16,13 @@ type DeleteDialogProps = {
 export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setError(null);
+      setSubmitting(false);
+    }
+  }, [open]);
 
   async function handleConfirm() {
     if (!item) {
@@ -47,8 +54,8 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
     <Modal
       open={open}
       onClose={handleClose}
-      title={isFolder ? "Move folder to trash" : "Move file to trash"}
-      description={`This moves the ${targetLabel} to trash for 30 days before permanent deletion.`}
+      title={isFolder ? "Delete folder" : "Delete file"}
+      description={`This action permanently removes the ${targetLabel} from your archive. It cannot be undone.`}
       className="max-w-[460px]"
     >
       <div className="grid gap-4">
@@ -61,8 +68,8 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
               <p className="break-all text-sm font-medium text-[var(--color-text)]">{item.name}</p>
               <p className="mt-0.5 text-xs text-[var(--color-text-soft)]">
                 {isFolder
-                  ? "The folder and everything inside it will move to trash."
-                  : `${item.sizeBytes !== undefined ? formatBytes(item.sizeBytes) : "Unknown size"} \u00b7 ${item.owner}`}
+                  ? "Folder and everything inside it will be deleted."
+                  : `${item.sizeBytes ? formatBytes(item.sizeBytes) : "Unknown size"} \u00b7 ${item.owner}`}
               </p>
             </div>
           </div>
@@ -92,7 +99,7 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
             disabled={submitting || !item}
             className="rounded-full bg-[var(--color-danger)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(220,38,38,0.28)] hover:bg-[var(--color-danger-strong)] disabled:opacity-60"
           >
-            {submitting ? "Moving..." : "Move to trash"}
+            {submitting ? "Deleting..." : isFolder ? "Delete folder" : "Delete file"}
           </button>
         </div>
       </div>

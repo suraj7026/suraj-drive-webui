@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Google_Sans } from "next/font/google";
-import { headers } from "next/headers";
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme";
 
@@ -21,12 +20,11 @@ export const metadata: Metadata = {
   description: "An editorial personal archive frontend connected to a Go and MinIO backend.",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang="en"
@@ -34,7 +32,7 @@ export default async function RootLayout({
       className={`${headingFont.variable} ${bodyFont.variable} h-full`}
     >
       <head>
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full bg-[var(--color-surface)] text-[var(--color-text)] antialiased">
         {children}

@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 
 type NewFolderDialogProps = {
@@ -14,6 +14,14 @@ export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFol
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setError(null);
+      setSubmitting(false);
+    }
+  }, [open]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,6 +59,7 @@ export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFol
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Travel notes"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             className="w-full rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm shadow-[inset_0_0_0_1px_var(--color-outline)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
           />

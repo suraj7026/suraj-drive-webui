@@ -16,11 +16,6 @@ export function getApiBaseUrl() {
   return configured.endsWith("/") ? configured.slice(0, -1) : configured;
 }
 
-export function getPublicApiBaseUrl() {
-  const configured = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
-  return configured.endsWith("/") ? configured.slice(0, -1) : configured;
-}
-
 export function buildApiUrl(pathname: string, query?: Record<string, string | number | undefined>) {
   const base = getApiBaseUrl();
   const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
