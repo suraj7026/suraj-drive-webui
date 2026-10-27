@@ -233,6 +233,7 @@ export type BackendUploadReservation = {
   upload_mode: "single" | "multipart";
   part_size?: number;
   expected_sha256?: string;
+  failure_message?: string;
   processing_stage?: "verifying" | "scanning" | "ready" | "failed";
   uploaded_parts?: Array<{ part_number: number; etag: string; size: number }>;
   url?: string;

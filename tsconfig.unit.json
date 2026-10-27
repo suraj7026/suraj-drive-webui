@@ -9,6 +9,6 @@
     "outDir": ".test-build",
     "plugins": []
   },
-  "include": ["lib/api/text-preview.ts"],
+  "include": ["lib/api/text-preview.ts", "lib/api/client.ts", "lib/uploads/queue.ts", "lib/uploads/retry.ts", "lib/uploads/multipart.ts", "lib/uploads/completion.ts"],
   "exclude": ["node_modules", ".test-build"]
 }
