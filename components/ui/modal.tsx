@@ -1,9 +1,10 @@
 "use client";
 
-import { type ReactNode, useEffect, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useId, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
 
 type ModalProps = {
   open: boolean;
@@ -15,31 +16,26 @@ type ModalProps = {
 };
 
 export function Modal({ open, onClose, title, description, children, className }: ModalProps) {
+  const titleId = useId();
+  const descriptionId = useId();
   const mounted = useSyncExternalStore(
     () => () => undefined,
     () => true,
     () => false
   );
+  const dialogRef = useDialogFocus(open && mounted, onClose);
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    document.addEventListener("keydown", handleKey);
     const originalHtmlOverflow = document.documentElement.style.overflow;
     const originalOverflow = document.body.style.overflow;
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener("keydown", handleKey);
       document.documentElement.style.overflow = originalHtmlOverflow;
       document.body.style.overflow = originalOverflow;
     };
@@ -53,11 +49,16 @@ export function Modal({ open, onClose, title, description, children, className }
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={title}
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+      aria-labelledby={title ? titleId : undefined}
+      aria-describedby={description ? descriptionId : undefined}
+      aria-label={title ? undefined : "Dialog"}
+      ref={dialogRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
     >
       <button
         type="button"
+        tabIndex={-1}
         aria-label="Close dialog"
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-[var(--color-scrim)] backdrop-blur-sm"
@@ -65,21 +66,22 @@ export function Modal({ open, onClose, title, description, children, className }
       <div
         role="document"
         className={cn(
-          "ambient-panel relative w-full max-w-[560px] rounded-[32px] bg-[var(--color-surface)] p-6 shadow-[0_32px_80px_rgba(15,18,21,0.28)]",
+          "ambient-panel relative max-h-[calc(100dvh-2rem)] w-full max-w-[560px] overflow-y-auto overscroll-contain rounded-[32px] bg-[var(--color-surface)] p-6 shadow-[0_32px_80px_rgba(15,18,21,0.28)]",
           className
         )}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             {title ? (
-              <h2 className="font-heading text-2xl font-semibold tracking-[-0.04em]">{title}</h2>
+              <h2 id={titleId} className="font-heading text-2xl font-semibold tracking-[-0.04em]">{title}</h2>
             ) : null}
             {description ? (
-              <p className="mt-1 text-sm text-[var(--color-text-soft)]">{description}</p>
+              <p id={descriptionId} className="mt-1 text-sm text-[var(--color-text-soft)]">{description}</p>
             ) : null}
           </div>
           <button
             type="button"
+            data-autofocus
             onClick={onClose}
             aria-label="Close"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-low)] text-[var(--color-text-soft)] hover:text-[var(--color-text)]"

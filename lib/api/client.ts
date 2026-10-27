@@ -1,4 +1,4 @@
-import { buildApiUrl, readApiResponse } from "@/lib/api/core";
+import { buildApiUrl, readApiResponse } from "./core";
 
 export async function clientApiFetch<T>(pathname: string, init?: RequestInit) {
   const headers = new Headers(init?.headers);
@@ -6,6 +6,7 @@ export async function clientApiFetch<T>(pathname: string, init?: RequestInit) {
 
   const response = await fetch(buildApiUrl(pathname), {
     ...init,
+    signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
     headers,
     credentials: "include",
     cache: "no-store",
@@ -19,6 +20,14 @@ type UploadOptions = {
   file: File;
   onProgress?: (loadedBytes: number) => void;
   signal?: AbortSignal;
+};
+
+type BlobUploadOptions = {
+  url: string;
+  data: Blob;
+  onProgress?: (loadedBytes: number) => void;
+  signal?: AbortSignal;
+  stallTimeoutMs?: number;
 };
 
 export class UploadError extends Error {
@@ -38,10 +47,40 @@ export class UploadError extends Error {
 }
 
 export function uploadFileWithProgress({ url, file, onProgress, signal }: UploadOptions) {
+  return uploadBlobWithProgress({ url, data: file, onProgress, signal });
+}
+
+export function uploadBlobWithProgress({ url, data, onProgress, signal, stallTimeoutMs = 90_000 }: BlobUploadOptions) {
   return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Upload aborted", "AbortError"));
+      return;
+    }
     const xhr = new XMLHttpRequest();
+    let settled = false;
+    let lastLoaded = 0;
+    let watchdog: ReturnType<typeof setTimeout>;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      signal?.removeEventListener("abort", abortUpload);
+      if (error) reject(error);
+      else resolve();
+    };
+    const armWatchdog = () => {
+      clearTimeout(watchdog);
+      watchdog = setTimeout(() => {
+        finish(new UploadError("Upload stalled: no progress from storage. Please retry.", { status: 408, retryable: true }));
+        xhr.abort();
+      }, stallTimeoutMs);
+    };
 
     xhr.upload.addEventListener("progress", (event) => {
+      if (event.loaded > lastLoaded) {
+        lastLoaded = event.loaded;
+        armWatchdog();
+      }
       if (!event.lengthComputable) {
         return;
       }
@@ -50,7 +89,7 @@ export function uploadFileWithProgress({ url, file, onProgress, signal }: Upload
 
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
+        finish();
         return;
       }
 
@@ -58,7 +97,7 @@ export function uploadFileWithProgress({ url, file, onProgress, signal }: Upload
       const codePart = detail?.code ? ` ${detail.code}` : "";
       const messagePart = detail?.message ? `: ${detail.message}` : "";
       const message = `Upload failed (HTTP ${xhr.status}${codePart})${messagePart}`;
-      reject(
+      finish(
         new UploadError(message, {
           status: xhr.status,
           code: detail?.code,
@@ -69,7 +108,7 @@ export function uploadFileWithProgress({ url, file, onProgress, signal }: Upload
     });
 
     xhr.addEventListener("error", () => {
-      reject(
+      finish(
         new UploadError("Upload failed: network error", {
           status: 0,
           retryable: true,
@@ -78,17 +117,22 @@ export function uploadFileWithProgress({ url, file, onProgress, signal }: Upload
     });
 
     xhr.addEventListener("abort", () => {
-      reject(new DOMException("Upload aborted", "AbortError"));
+      finish(new DOMException("Upload aborted", "AbortError"));
     });
 
     const abortUpload = () => xhr.abort();
     signal?.addEventListener("abort", abortUpload, { once: true });
 
     xhr.open("PUT", url);
-    if (file.type) {
-      xhr.setRequestHeader("Content-Type", file.type);
+    if (data.type) {
+      xhr.setRequestHeader("Content-Type", data.type);
     }
-    xhr.send(file);
+    armWatchdog();
+    try {
+      xhr.send(data);
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error("Unable to start upload"));
+    }
   });
 }
 

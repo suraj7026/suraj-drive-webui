@@ -6,22 +6,23 @@
     "dev": "next dev -p 4000",
     "build": "next build",
     "start": "next start -p 4000",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:unit": "tsc -p tsconfig.unit.json && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "heic2any": "^0.0.4",
+    "hash-wasm": "^4.12.0",
     "lucide-react": "^1.8.0",
-    "next": "16.2.4",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "next": "^16.3.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "^16.3.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

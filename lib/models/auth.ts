@@ -3,5 +3,5 @@ export type CurrentUser = {
   email: string;
   name: string;
   picture: string;
-  bucket: string;
+  drive_id: string;
 };

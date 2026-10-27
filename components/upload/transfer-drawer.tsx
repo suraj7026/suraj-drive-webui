@@ -1,23 +1,26 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, CloudUpload, Pause, Play, TriangleAlert, X } from "lucide-react";
+import { ChevronDown, CloudUpload, FileUp, Pause, Play, RotateCcw, TriangleAlert, X } from "lucide-react";
 import type { TransferItem } from "@/lib/models/transfers";
 import { formatBytes } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
 type TransferDrawerProps = {
   transfers: TransferItem[];
-  onToggleStatus?: (transferId: string) => void;
+	onToggleStatus?: (transferId: string) => void;
   onRemove?: (transferId: string) => void;
+	onReselect?: (transferId: string, file: File) => void;
+  onRetry?: (transferId: string) => void;
 };
 
-export function TransferDrawer({ transfers, onToggleStatus, onRemove }: TransferDrawerProps) {
+export function TransferDrawer({ transfers, onToggleStatus, onRemove, onReselect, onRetry }: TransferDrawerProps) {
   const [open, setOpen] = useState(true);
 
   const summary = useMemo(() => {
     const done = transfers.filter((transfer) => transfer.status === "done").length;
-    return { done, total: transfers.length };
+    const count = (status: TransferItem["status"]) => transfers.filter((transfer) => transfer.status === status).length;
+    return { done, total: transfers.length, queued: count("queued"), active: count("uploading") + count("preparing"), processing: count("verifying") + count("scanning"), failed: count("error") };
   }, [transfers]);
 
   if (transfers.length === 0) {
@@ -40,9 +43,10 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
             <span className="block text-[10px] uppercase tracking-[0.28em] text-[var(--color-text-soft)]">
               Transfers
             </span>
-            <span className="font-heading mt-0.5 block truncate text-sm font-semibold tracking-[-0.02em]">
-              {summary.done} of {summary.total} uploaded
+            <span className="font-heading mt-0.5 block text-sm font-semibold tracking-[-0.02em]">
+              {summary.done} of {summary.total} complete
             </span>
+            <span className="mt-1 block text-[11px] text-[var(--color-text-soft)]">{summary.queued} queued · {summary.active} transferring · {summary.processing} verifying · {summary.failed} failed</span>
           </span>
         </span>
         <ChevronDown
@@ -55,8 +59,9 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
       </button>
 
       {open ? (
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-2 px-3 pb-3">
-          {transfers.slice(0, 3).map((transfer) => {
+        <div className="grid max-h-[min(55dvh,520px)] grid-cols-[minmax(0,1fr)] gap-2 overflow-y-auto overscroll-contain px-3 pb-3" aria-live="polite">
+          {summary.failed > 0 && onRetry ? <button type="button" onClick={() => transfers.filter((transfer) => transfer.status === "error").forEach((transfer) => onRetry(transfer.id))} className="rounded-full px-3 py-2 text-xs font-medium text-[var(--color-primary)]">Retry failed files</button> : null}
+          {transfers.map((transfer) => {
             const percent = transfer.totalBytes > 0
               ? Math.min(100, Math.round((transfer.transferredBytes / transfer.totalBytes) * 100))
               : 0;
@@ -72,18 +77,34 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
                     <p className="mt-0.5 truncate text-[11px] text-[var(--color-text-soft)]">{transfer.statusLabel}</p>
                   </div>
                   <div className="flex shrink-0 gap-0.5">
+                    {transfer.status === "error" && onRetry ? <button type="button" aria-label={`Retry ${transfer.fileName}`} onClick={() => onRetry(transfer.id)} className="rounded-full p-1.5 text-[var(--color-text-soft)]"><RotateCcw size={12} /></button> : null}
+					{transfer.status === "paused" && transfer.canResume === false && transfer.resumable ? (
+						<label className="cursor-pointer rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)]" title="Reselect the same file to resume">
+							<span className="sr-only">Reselect {transfer.fileName} to resume</span>
+							<FileUp size={12} aria-hidden="true" />
+							<input
+								type="file"
+								className="sr-only"
+								onChange={(event) => {
+									const file = event.target.files?.[0];
+									if (file) onReselect?.(transfer.id, file);
+									event.target.value = "";
+								}}
+							/>
+						</label>
+					) : null}
+					<button
+						type="button"
+						aria-label={transfer.status === "paused" ? "Resume transfer" : "Pause transfer"}
+						disabled={!onToggleStatus || !transfer.resumable || (transfer.status === "paused" && transfer.canResume === false) || (transfer.status !== "uploading" && transfer.status !== "paused")}
+						onClick={() => onToggleStatus?.(transfer.id)}
+						className="rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						{transfer.status === "paused" ? <Play size={12} /> : <Pause size={12} />}
+					</button>
                     <button
                       type="button"
-                      aria-label={transfer.status === "paused" ? "Resume transfer" : "Pause transfer"}
-                      disabled={!onToggleStatus || transfer.status === "done" || transfer.status === "error"}
-                      onClick={() => onToggleStatus?.(transfer.id)}
-                      className="rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {transfer.status === "paused" ? <Play size={12} /> : <Pause size={12} />}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Dismiss transfer"
+                      aria-label={transfer.status === "done" ? "Dismiss transfer" : "Cancel transfer"}
                       disabled={!onRemove}
                       onClick={() => onRemove?.(transfer.id)}
                       className="rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -94,13 +115,20 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
                 </div>
 
                 {transfer.status === "error" ? (
-                  <div className="mt-3 flex items-start gap-2 rounded-[12px] bg-[var(--color-danger-soft)] px-2.5 py-2 text-[11px] text-[var(--color-danger-text)]">
+                  <div role="alert" className="mt-3 flex items-start gap-2 rounded-[12px] bg-[var(--color-danger-soft)] px-2.5 py-2 text-[11px] text-[var(--color-danger-text)]">
                     <TriangleAlert size={12} className="mt-0.5 shrink-0" />
                     <span>{transfer.errorMessage ?? "Upload failed."}</span>
                   </div>
                 ) : (
                   <>
-                    <div className="mt-3 h-1.5 rounded-full bg-[var(--color-surface-low)]">
+                    <div
+                      role="progressbar"
+                      aria-label={`Upload progress for ${transfer.fileName}`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={percent}
+                      className="mt-3 h-1.5 rounded-full bg-[var(--color-surface-low)]"
+                    >
                       <div
                         className="primary-gradient h-1.5 rounded-full transition-[width] duration-300"
                         style={{ width: `${percent}%` }}
@@ -118,11 +146,6 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove }: Transfer
             );
           })}
 
-          {transfers.length > 3 ? (
-            <p className="px-1 text-[11px] text-[var(--color-text-soft)]">
-              +{transfers.length - 3} more in queue
-            </p>
-          ) : null}
         </div>
       ) : null}
     </div>

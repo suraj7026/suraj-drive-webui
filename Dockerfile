@@ -31,5 +31,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 EXPOSE 4000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -q -T 3 -O /dev/null http://127.0.0.1:4000/login || exit 1
 
 CMD ["node", "server.js"]
