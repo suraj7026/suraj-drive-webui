@@ -1,6 +1,6 @@
 # Drive WebUI
 
-Next.js 16.3 frontend for the Drive UI. It connects to the [Go backend](https://github.com/suraj7026/suraj-drive-api) for:
+Next.js 16 frontend for the Drive UI. It connects to the [Go backend](https://github.com/suraj7026/suraj-drive-api) for:
 
 - Google login and session lookup
 - Metadata-backed drive browsing
