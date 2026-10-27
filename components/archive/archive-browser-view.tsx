@@ -384,6 +384,10 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 	function handleReselectTransfer(transferId: string, file: File) {
 		const transfer = transfers.find((candidate) => candidate.id === transferId);
 		if (!transfer) return;
+		if (!transfer.targetParentId) {
+			updateTransfer(transferId, { status: "error", errorMessage: "The destination folder was not created. Select the folder again to retry." });
+			return;
+		}
 		if (file.name !== transfer.fileName || file.size !== transfer.totalBytes) {
 			updateTransfer(transferId, {
 				status: "paused",
@@ -413,6 +417,10 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
       queueRef.current ??= new UploadQueue();
       updateTransfer(transferId, { status: "queued", errorMessage: undefined, statusLabel: "Waiting to check verification..." });
       void queueRef.current.enqueue({ id: transferId, size: transfer.totalBytes, transfer: async () => () => monitorUpload(transferId, transfer.uploadId!, transfer.expectedSHA256!, transfer.totalBytes, controller, transfer.targetLabel) });
+      return;
+    }
+    if (!transfer.targetParentId) {
+      updateTransfer(transferId, { errorMessage: "The destination folder was not created. Select the folder again to retry." });
       return;
     }
     const file = transferFilesRef.current[transferId];
@@ -611,8 +619,8 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 	]);
 	const folderCreationBatchID = crypto.randomUUID();
 	void (async () => {
+		const folderIDs = new Map<string, string>([["", currentFolderId]]);
 		try {
-			const folderIDs = new Map<string, string>([["", currentFolderId]]);
 			const sortedFolderPaths = Array.from(folderPaths).sort((left, right) => left.split("/").length - right.split("/").length);
 			for (const [folderIndex, relativePath] of sortedFolderPaths.entries()) {
 				const segments = relativePath.split("/");
@@ -635,7 +643,8 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 			const message = error instanceof Error ? error.message : "Folder upload preparation failed.";
 			setActionError(message);
 			for (const job of jobs) {
-				updateTransfer(job.transferId, { status: "error", statusLabel: "Upload failed", errorMessage: message });
+				const targetParentId = folderIDs.get(job.directoryPath);
+				updateTransfer(job.transferId, { status: "error", targetParentId, statusLabel: "Upload failed", errorMessage: targetParentId ? message : `${message} Select the folder again to retry.` });
 			}
 		}
 	})();
