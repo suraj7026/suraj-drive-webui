@@ -12,12 +12,16 @@ self.onmessage = async (event: MessageEvent<DigestRequest>) => {
     hasher.init();
     const reader = event.data.file.stream().getReader();
     let bytes = 0;
+    let lastProgress = 0;
     for (;;) {
       const chunk = await reader.read();
       if (chunk.done) break;
       hasher.update(chunk.value);
       bytes += chunk.value.byteLength;
-      self.postMessage({ type: "progress", bytes } satisfies DigestResponse);
+      if (performance.now() - lastProgress > 250) {
+        self.postMessage({ type: "progress", bytes } satisfies DigestResponse);
+        lastProgress = performance.now();
+      }
     }
     self.postMessage({ type: "complete", digest: hasher.digest("hex") } satisfies DigestResponse);
   } catch (error) {

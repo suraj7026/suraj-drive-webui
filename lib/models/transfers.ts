@@ -1,6 +1,6 @@
 import type { CurrentUser } from "@/lib/models/auth";
 
-export type TransferStatus = "queued" | "uploading" | "paused" | "done" | "error";
+export type TransferStatus = "queued" | "preparing" | "uploading" | "verifying" | "scanning" | "paused" | "done" | "error";
 
 export type TransferItem = {
   id: string;
@@ -16,6 +16,8 @@ export type TransferItem = {
   objectKey?: string;
   errorMessage?: string;
   resumable?: boolean;
+  retryVerification?: boolean;
+  reservationKey?: string;
 	uploadId?: string;
 	canResume?: boolean;
 	uploadMode?: "single" | "multipart";

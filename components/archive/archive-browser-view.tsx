@@ -31,9 +31,9 @@ import {
   TableProperties,
   Trash2,
 } from "lucide-react";
-import { clientApiFetch, uploadBlobWithProgress, uploadFileWithProgress, UploadError } from "@/lib/api/client";
+import { clientApiFetch, uploadFileWithProgress, UploadError } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/core";
-import type { BackendActiveUploadsResponse, BackendActivityEvent, BackendActivityResponse, BackendBatchResponse, BackendPresignResponse, BackendShortcutResolution, BackendUploadPartURLs, BackendUploadReservation, BackendUserPreferences } from "@/lib/models/backend";
+import type { BackendActiveUploadsResponse, BackendActivityEvent, BackendActivityResponse, BackendBatchResponse, BackendPresignResponse, BackendShortcutResolution, BackendUploadReservation, BackendUserPreferences } from "@/lib/models/backend";
 import { AppShell } from "@/components/shell/app-shell";
 import type { ArchiveContext, FileItem } from "@/lib/models/archive";
 import type { TransferItem } from "@/lib/models/transfers";
@@ -54,6 +54,10 @@ import { FolderColorDialog } from "@/components/archive/folder-color-dialog";
 import { MoveDialog } from "@/components/archive/move-dialog";
 import { loadRecoveredTransfers, persistRecoveredTransfers } from "@/lib/uploads/recovery-store";
 import { sha256File } from "@/lib/uploads/file-digest";
+import { UploadQueue } from "@/lib/uploads/queue";
+import { uploadMultipartFile } from "@/lib/uploads/multipart";
+import { requestUploadCompletion, waitForUploadCompletion, UploadVerificationError } from "@/lib/uploads/completion";
+import { retryUploadRequest } from "@/lib/uploads/retry";
 
 type ArchiveBrowserViewProps = {
   context: ArchiveContext;
@@ -79,10 +83,10 @@ const FILTER_OPTIONS = [
 ];
 
 const MULTIPART_UPLOAD_THRESHOLD = 16 << 20;
-const PRESIGNED_PART_BATCH_SIZE = 4;
 
 export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const router = useRouter();
+  const queueRef = useRef<UploadQueue | null>(null);
   const controllersRef = useRef<Record<string, AbortController>>({});
   const transferFilesRef = useRef<Record<string, File>>({});
   const cancelledTransfersRef = useRef(new Set<string>());
@@ -120,6 +124,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
     : "My Archive";
 
 	useEffect(() => () => {
+		queueRef.current?.cancelPending();
 		for (const controller of Object.values(controllersRef.current)) controller.abort();
 	}, []);
 
@@ -249,18 +254,14 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 			controllers[transferId] = controller;
 			recoveryControllers.set(transferId, controller);
 			try {
-				let completion = await requestUploadCompletion(uploadId, expectedSHA256, controller.signal);
-				while (completion.status === "completing" || completion.processing_stage === "scanning") {
-					setTransfers((current) => current.map((transfer) => transfer.id === transferId ? { ...transfer, statusLabel: completion.processing_stage === "scanning" ? "Scanning upload for threats..." : "Verifying uploaded bytes..." } : transfer));
-					await abortableDelay(1000, controller.signal);
-					completion = await requestUploadCompletion(uploadId, expectedSHA256, controller.signal);
-				}
-				if (completion.status !== "completed" || completion.processing_stage === "failed") throw new Error("Upload security verification failed.");
-				setTransfers((current) => current.map((transfer) => transfer.id === transferId ? { ...transfer, status: "done", transferredBytes: size, statusLabel: "Upload verified", errorMessage: undefined } : transfer));
+				await waitForUploadCompletion(uploadId, expectedSHA256, size, controller.signal, (stage) => {
+            setTransfers((current) => current.map((transfer) => transfer.id === transferId ? { ...transfer, status: stage, statusLabel: stage === "scanning" ? "Scanning upload for threats..." : "Verifying uploaded bytes..." } : transfer));
+          });
+          setTransfers((current) => current.map((transfer) => transfer.id === transferId ? { ...transfer, status: "done", transferredBytes: size, statusLabel: "Upload verified", errorMessage: undefined } : transfer));
 				startTransition(() => router.refresh());
 			} catch (error) {
 				if (error instanceof DOMException && error.name === "AbortError") return;
-				setTransfers((current) => current.map((transfer) => transfer.id === transferId ? { ...transfer, status: "error", statusLabel: "Upload verification failed", errorMessage: error instanceof Error ? error.message : "Upload verification failed" } : transfer));
+				setTransfers((current) => current.map((transfer) => transfer.id === transferId ? { ...transfer, status: "error", retryVerification: !(error instanceof UploadVerificationError), ...(error instanceof UploadVerificationError ? { uploadId: undefined, reservationKey: crypto.randomUUID() } : {}), statusLabel: "Upload verification failed", errorMessage: error instanceof Error ? error.message : "Upload verification failed" } : transfer));
 			} finally {
 				delete controllers[transferId];
 				recoveryControllers.delete(transferId);
@@ -272,24 +273,32 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 		]).then(([localTransfers, response]) => {
 			if (cancelled) return;
 			const activeByID = new Map(response.uploads.map((upload) => [upload.upload_id, upload]));
+      const localOnly = localTransfers
+        .filter((transfer) => (!transfer.uploadId || !activeByID.has(transfer.uploadId)) && transfer.status !== "done")
+        .map((transfer): TransferItem => {
+          const checking = Boolean(transfer.uploadId && transfer.expectedSHA256 && (transfer.retryVerification || transfer.status === "verifying" || transfer.status === "scanning"));
+          return { ...transfer, status: checking ? "error" : "paused", retryVerification: checking, canResume: false, resumable: !checking, statusLabel: checking ? "Reconnect and retry verification" : "Reselect this file to recover the queued upload" };
+        });
 			const recovered = localTransfers
 				.filter((transfer) => transfer.uploadId && activeByID.has(transfer.uploadId))
 				.map((transfer) => {
 					const upload = activeByID.get(transfer.uploadId as string)!;
 					const processing = upload.status === "completing" || upload.processing_stage === "scanning";
-					return { ...transfer, objectKey: upload.key, fileName: upload.name, totalBytes: upload.expected_size, transferredBytes: processing ? upload.expected_size : upload.uploaded_parts?.reduce((sum, part) => sum + part.size, 0) ?? 0, status: processing ? "uploading" as const : "paused" as const, canResume: false, resumable: !processing && upload.upload_mode === "multipart", uploadMode: upload.upload_mode, partSize: upload.part_size, uploadedParts: upload.uploaded_parts, mimeType: upload.mime_type, expectedSHA256: upload.expected_sha256, statusLabel: upload.processing_stage === "scanning" ? "Scanning upload for threats..." : upload.status === "completing" ? "Verifying uploaded bytes..." : upload.upload_mode === "multipart" ? "Upload interrupted — reselect the same file to continue or cancel it" : "Upload interrupted — cancel and upload this file again" };
+					return { ...transfer, objectKey: upload.key, fileName: upload.name, totalBytes: upload.expected_size, transferredBytes: processing ? upload.expected_size : upload.uploaded_parts?.reduce((sum, part) => sum + part.size, 0) ?? 0, status: processing ? upload.processing_stage === "scanning" ? "scanning" as const : "verifying" as const : "paused" as const, canResume: false, resumable: !processing && upload.upload_mode === "multipart", uploadMode: upload.upload_mode, partSize: upload.part_size, uploadedParts: upload.uploaded_parts, mimeType: upload.mime_type, expectedSHA256: upload.expected_sha256, statusLabel: upload.processing_stage === "scanning" ? "Scanning upload for threats..." : upload.status === "completing" ? "Verifying uploaded bytes..." : upload.upload_mode === "multipart" ? "Upload interrupted — reselect the same file to continue or cancel it" : "Upload interrupted — cancel and upload this file again" };
 				});
 			for (const upload of response.uploads) {
 				if (!recovered.some((transfer) => transfer.uploadId === upload.upload_id)) {
 					const processing = upload.status === "completing" || upload.processing_stage === "scanning";
-					recovered.push({ id: upload.upload_id, uploadId: upload.upload_id, objectKey: upload.key, fileName: upload.name, totalBytes: upload.expected_size, transferredBytes: processing ? upload.expected_size : upload.uploaded_parts?.reduce((sum, part) => sum + part.size, 0) ?? 0, status: processing ? "uploading" : "paused", statusLabel: upload.processing_stage === "scanning" ? "Scanning upload for threats..." : upload.status === "completing" ? "Verifying uploaded bytes..." : upload.upload_mode === "multipart" ? "Upload interrupted — reselect the same file to continue or cancel it" : "Upload interrupted — cancel and upload this file again", targetLabel: "My Drive", resumable: !processing && upload.upload_mode === "multipart", canResume: false, uploadMode: upload.upload_mode, partSize: upload.part_size, uploadedParts: upload.uploaded_parts, mimeType: upload.mime_type, expectedSHA256: upload.expected_sha256 });
+					recovered.push({ id: upload.upload_id, uploadId: upload.upload_id, objectKey: upload.key, fileName: upload.name, totalBytes: upload.expected_size, transferredBytes: processing ? upload.expected_size : upload.uploaded_parts?.reduce((sum, part) => sum + part.size, 0) ?? 0, status: processing ? upload.processing_stage === "scanning" ? "scanning" : "verifying" : "paused", statusLabel: upload.processing_stage === "scanning" ? "Scanning upload for threats..." : upload.status === "completing" ? "Verifying uploaded bytes..." : upload.upload_mode === "multipart" ? "Upload interrupted — reselect the same file to continue or cancel it" : "Upload interrupted — cancel and upload this file again", targetLabel: "My Drive", resumable: !processing && upload.upload_mode === "multipart", canResume: false, uploadMode: upload.upload_mode, partSize: upload.part_size, uploadedParts: upload.uploaded_parts, mimeType: upload.mime_type, expectedSHA256: upload.expected_sha256 });
 				}
 			}
-			if (recovered.length > 0) setTransfers((current) => current.length > 0 ? current : recovered);
+			if (recovered.length > 0 || localOnly.length > 0) setTransfers((current) => current.length > 0 ? current : [...recovered, ...localOnly]);
 			for (const upload of response.uploads) {
 				if ((upload.status === "completing" || upload.processing_stage === "scanning") && upload.expected_sha256) {
 					const transferId = recovered.find((transfer) => transfer.uploadId === upload.upload_id)?.id ?? upload.upload_id;
-					void watchUploadCompletion(transferId, upload.upload_id, upload.expected_sha256, upload.expected_size);
+          queueRef.current ??= new UploadQueue();
+          const digest = upload.expected_sha256;
+          void queueRef.current.enqueue({ id: transferId, size: upload.expected_size, transfer: async () => () => watchUploadCompletion(transferId, upload.upload_id, digest, upload.expected_size) });
 				}
 			}
 		});
@@ -335,13 +344,19 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 	async function handleRemoveTransfer(transferId: string) {
 		const transfer = transfers.find((candidate) => candidate.id === transferId);
     cancelledTransfersRef.current.add(transferId);
+    queueRef.current?.cancelPending(transferId);
     controllersRef.current[transferId]?.abort();
-		if (transfer?.uploadId && transfer.status !== "done") {
+		if (transfer?.uploadId && transfer.status !== "done" && transfer.status !== "scanning") {
 			try {
 				await clientApiFetch(`/api/uploads/${encodeURIComponent(transfer.uploadId)}/abort`, { method: "POST" });
 			} catch (error) {
-				setActionError(error instanceof Error ? error.message : "Failed to cancel upload.");
-				return;
+        if (!(error instanceof ApiError && error.status === 409 && transfer.retryVerification)) {
+          const message = error instanceof Error ? error.message : "Failed to cancel upload.";
+          cancelledTransfersRef.current.delete(transferId);
+          updateTransfer(transferId, { status: "error", errorMessage: message, statusLabel: "Cancellation needs attention" });
+          setActionError(message);
+          return;
+        }
 			}
 		}
     delete controllersRef.current[transferId];
@@ -361,14 +376,18 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 		if (transfer.status === "paused") {
 			const file = transferFilesRef.current[transferId];
 			if (file) {
-				void uploadTransfer(transferId, file, transfer.uploadId, transfer.conflictMode, transfer.targetPrefix, transfer.targetLabel, transfer.targetParentId);
+				void enqueueTransfer(transferId, file, transfer.uploadId, transfer.conflictMode, transfer.targetPrefix, transfer.targetLabel, transfer.targetParentId, transfer.reservationKey);
 			}
 		}
 	}
 
 	function handleReselectTransfer(transferId: string, file: File) {
 		const transfer = transfers.find((candidate) => candidate.id === transferId);
-		if (!transfer || !transfer.uploadId || transfer.uploadMode !== "multipart") return;
+		if (!transfer) return;
+		if (!transfer.targetParentId) {
+			updateTransfer(transferId, { status: "error", errorMessage: "The destination folder was not created. Select the folder again to retry." });
+			return;
+		}
 		if (file.name !== transfer.fileName || file.size !== transfer.totalBytes) {
 			updateTransfer(transferId, {
 				status: "paused",
@@ -380,20 +399,68 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 		}
 		transferFilesRef.current[transferId] = file;
 		updateTransfer(transferId, { canResume: true, errorMessage: undefined, statusLabel: "Resuming interrupted upload..." });
-		void uploadTransfer(transferId, file, transfer.uploadId, transfer.conflictMode, transfer.targetPrefix, transfer.targetLabel, transfer.targetParentId);
+		void enqueueTransfer(transferId, file, transfer.uploadId, transfer.conflictMode, transfer.targetPrefix, transfer.targetLabel, transfer.targetParentId, transfer.reservationKey);
 	}
 
-  async function uploadTransfer(transferId: string, file: File, existingUploadId?: string, conflictMode: "keep_both" | "new_version" = "keep_both", targetPrefix = currentPrefix, targetLabel = uploadTargetLabel, targetParentId = currentFolderId, refreshAfterComplete = true) {
+  function enqueueTransfer(transferId: string, file: File, existingUploadId?: string, conflictMode: "keep_both" | "new_version" = "keep_both", targetPrefix = currentPrefix, targetLabel = uploadTargetLabel, targetParentId = currentFolderId, reservationKey = transferId) {
+    queueRef.current ??= new UploadQueue();
+    updateTransfer(transferId, { status: "queued", statusLabel: "Waiting for transfer or verification capacity...", errorMessage: undefined });
+    return queueRef.current.enqueue({ id: transferId, size: file.size, transfer: () => uploadTransfer(transferId, file, existingUploadId, conflictMode, targetPrefix, targetLabel, targetParentId, reservationKey) });
+  }
+
+  function handleRetryTransfer(transferId: string) {
+    const transfer = transfers.find((entry) => entry.id === transferId);
+    if (!transfer || transfer.status !== "error") return;
+    if (transfer.retryVerification && transfer.uploadId && transfer.expectedSHA256) {
+      const controller = new AbortController();
+      controllersRef.current[transferId] = controller;
+      queueRef.current ??= new UploadQueue();
+      updateTransfer(transferId, { status: "queued", errorMessage: undefined, statusLabel: "Waiting to check verification..." });
+      void queueRef.current.enqueue({ id: transferId, size: transfer.totalBytes, transfer: async () => () => monitorUpload(transferId, transfer.uploadId!, transfer.expectedSHA256!, transfer.totalBytes, controller, transfer.targetLabel) });
+      return;
+    }
+    if (!transfer.targetParentId) {
+      updateTransfer(transferId, { errorMessage: "The destination folder was not created. Select the folder again to retry." });
+      return;
+    }
+    const file = transferFilesRef.current[transferId];
+    if (file) void enqueueTransfer(transferId, file, transfer.uploadId, transfer.conflictMode, transfer.targetPrefix, transfer.targetLabel, transfer.targetParentId, transfer.reservationKey);
+    else updateTransfer(transferId, { status: "paused", canResume: false, resumable: true, statusLabel: "Reselect this file to retry" });
+  }
+
+  async function monitorUpload(transferId: string, uploadId: string, digest: string, size: number, controller: AbortController, targetLabel: string, initial?: BackendUploadReservation) {
+    try {
+      await waitForUploadCompletion(uploadId, digest, size, controller.signal, (stage) => {
+        updateTransfer(transferId, { status: stage, transferredBytes: size, statusLabel: stage === "scanning" ? "Scanning upload for threats..." : "Verifying uploaded bytes..." });
+      }, initial);
+      updateTransfer(transferId, { status: "done", retryVerification: false, transferredBytes: size, statusLabel: `Uploaded to ${targetLabel}`, errorMessage: undefined });
+      delete transferFilesRef.current[transferId];
+      startTransition(() => router.refresh());
+    } catch (error) {
+      if (!controller.signal.aborted) updateTransfer(transferId, {
+        status: "error", retryVerification: !(error instanceof UploadVerificationError),
+        ...(error instanceof UploadVerificationError ? { uploadId: undefined, reservationKey: crypto.randomUUID() } : {}),
+        statusLabel: "Upload verification needs attention", errorMessage: error instanceof Error ? error.message : "Upload verification failed",
+      });
+    } finally {
+      if (controllersRef.current[transferId] === controller) delete controllersRef.current[transferId];
+    }
+  }
+
+  async function uploadTransfer(transferId: string, file: File, existingUploadId?: string, conflictMode: "keep_both" | "new_version" = "keep_both", targetPrefix = currentPrefix, targetLabel = uploadTargetLabel, targetParentId = currentFolderId, reservationKey = transferId) {
     if (cancelledTransfersRef.current.delete(transferId)) return;
     const controller = new AbortController();
     controllersRef.current[transferId] = controller;
 
     const maxAttempts = 2;
     let lastError: unknown;
+    let handedOff = false;
 
     try {
-      updateTransfer(transferId, { status: "uploading", statusLabel: "Verifying file contents..." });
-      const expectedSHA256 = await sha256File(file, controller.signal);
+      updateTransfer(transferId, { status: "preparing", statusLabel: "Checking local file contents...", retryVerification: false });
+      const expectedSHA256 = await sha256File(file, controller.signal, (bytes) => {
+        updateTransfer(transferId, { statusLabel: `Checking local file: ${formatBytes(bytes)} of ${formatBytes(file.size)}` });
+      });
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         updateTransfer(transferId, {
           status: "uploading",
@@ -406,20 +473,27 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 
         let reservation: BackendUploadReservation;
         try {
-			reservation = existingUploadId ? await loadActiveUploadReservation(existingUploadId) : await clientApiFetch<BackendUploadReservation>("/api/uploads", {
+			reservation = existingUploadId ? await loadActiveUploadReservation(existingUploadId, controller.signal) : await retryUploadRequest(() => clientApiFetch<BackendUploadReservation>("/api/uploads", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
             body: JSON.stringify({
 			  parent_id: targetParentId,
               name: file.name,
               size_bytes: file.size,
               mime_type: file.type || "application/octet-stream",
-              idempotency_key: transferId,
+              idempotency_key: reservationKey,
 			  conflict_mode: conflictMode,
               expected_sha256: expectedSHA256,
             }),
-				});
+				}), controller.signal);
         } catch (error) {
+          if (existingUploadId && error instanceof ApiError && [404, 409, 410].includes(error.status) && attempt < maxAttempts) {
+            existingUploadId = undefined;
+            reservationKey = crypto.randomUUID();
+            updateTransfer(transferId, { uploadId: undefined, reservationKey });
+            continue;
+          }
           lastError = error;
           if (isRetryablePresignError(error) && attempt < maxAttempts) {
             continue;
@@ -429,21 +503,14 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 				if (reservation.expected_sha256 && reservation.expected_sha256 !== expectedSHA256) {
 					throw new Error("Selected file contents do not match this interrupted upload.");
 				}
-        if (reservation.upload_mode === "single" && !reservation.url) {
-          if (reservation.status === "completed") {
-            updateTransfer(transferId, {
-              transferredBytes: file.size,
-              status: "done",
-				  statusLabel: `Uploaded to ${targetLabel}`,
-              errorMessage: undefined,
-            });
-            if (refreshAfterComplete) startTransition(() => router.refresh());
-            return;
-          }
-          throw new Error(`Upload reservation is ${reservation.status} and cannot accept file data.`);
+        existingUploadId = reservation.upload_id;
+        updateTransfer(transferId, { uploadId: reservation.upload_id, uploadMode: reservation.upload_mode, partSize: reservation.part_size, uploadedParts: reservation.uploaded_parts, mimeType: reservation.mime_type, conflictMode, targetPrefix, targetLabel, targetParentId, expectedSHA256 });
+        if (reservation.status === "completing" || reservation.status === "completed") {
+          handedOff = true;
+          updateTransfer(transferId, { status: "verifying", retryVerification: true });
+          return () => monitorUpload(transferId, reservation.upload_id, expectedSHA256, file.size, controller, targetLabel, reservation);
         }
-				if (reservation.upload_mode === "multipart") existingUploadId = reservation.upload_id;
-				updateTransfer(transferId, { uploadId: reservation.upload_id, uploadMode: reservation.upload_mode, partSize: reservation.part_size, uploadedParts: reservation.uploaded_parts, mimeType: reservation.mime_type, conflictMode, targetPrefix, targetLabel, targetParentId, expectedSHA256 });
+        if (reservation.upload_mode === "single" && !reservation.url) throw new Error(`Upload reservation is ${reservation.status} and cannot accept file data.`);
 
         updateTransfer(transferId, {
           objectKey: reservation.key,
@@ -459,6 +526,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
               reservation,
               file,
               signal: controller.signal,
+              onRetry: (part) => updateTransfer(transferId, { statusLabel: `Retrying upload chunk ${part}...` }),
               onProgress: (loadedBytes) => {
                 updateTransfer(transferId, {
                   transferredBytes: loadedBytes,
@@ -482,24 +550,11 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
             });
           }
 
-			let completion = await requestUploadCompletion(reservation.upload_id, expectedSHA256, controller.signal);
-			while (completion.status === "completing" || completion.processing_stage === "scanning") {
-				updateTransfer(transferId, { transferredBytes: file.size, statusLabel: completion.processing_stage === "scanning" ? "Scanning upload for threats..." : "Verifying uploaded bytes..." });
-				await abortableDelay(1000, controller.signal);
-				completion = await requestUploadCompletion(reservation.upload_id, expectedSHA256, controller.signal);
-			}
-			if (completion.status !== "completed" || completion.processing_stage === "failed") {
-				throw new Error("Upload security verification failed.");
-			}
-
-          updateTransfer(transferId, {
-            transferredBytes: file.size,
-            status: "done",
-			statusLabel: `Uploaded to ${targetLabel}`,
-            errorMessage: undefined,
-          });
-          if (refreshAfterComplete) startTransition(() => router.refresh());
-          return;
+			updateTransfer(transferId, { retryVerification: true });
+          const completion = await requestUploadCompletion(reservation.upload_id, expectedSHA256, controller.signal);
+          updateTransfer(transferId, { status: "verifying", transferredBytes: file.size, statusLabel: "Verifying uploaded bytes...", retryVerification: true });
+          handedOff = true;
+          return () => monitorUpload(transferId, reservation.upload_id, expectedSHA256, file.size, controller, targetLabel, completion);
         } catch (error) {
           if (error instanceof DOMException && error.name === "AbortError") {
             throw error;
@@ -523,7 +578,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
         errorMessage: aborted ? undefined : error instanceof Error ? error.message : "Upload failed",
       });
     } finally {
-      delete controllersRef.current[transferId];
+      if (!handedOff && controllersRef.current[transferId] === controller) delete controllersRef.current[transferId];
     }
   }
 
@@ -564,8 +619,8 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 	]);
 	const folderCreationBatchID = crypto.randomUUID();
 	void (async () => {
+		const folderIDs = new Map<string, string>([["", currentFolderId]]);
 		try {
-			const folderIDs = new Map<string, string>([["", currentFolderId]]);
 			const sortedFolderPaths = Array.from(folderPaths).sort((left, right) => left.split("/").length - right.split("/").length);
 			for (const [folderIndex, relativePath] of sortedFolderPaths.entries()) {
 				const segments = relativePath.split("/");
@@ -580,21 +635,16 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 				job.targetParentId = folderIDs.get(job.directoryPath) ?? currentFolderId;
 				updateTransfer(job.transferId, { targetParentId: job.targetParentId });
 			}
-			let nextJob = 0;
-			const worker = async () => {
-				while (nextJob < jobs.length) {
-					const job = jobs[nextJob++];
-					if (cancelledTransfersRef.current.delete(job.transferId)) continue;
-					await uploadTransfer(job.transferId, job.file, undefined, conflictMode, job.targetPrefix, job.targetLabel, job.targetParentId, false);
-				}
-			};
-			await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, () => worker()));
-			startTransition(() => router.refresh());
-		} catch (error) {
+			await Promise.all(jobs.map((job) => {
+          if (cancelledTransfersRef.current.delete(job.transferId)) return;
+          return enqueueTransfer(job.transferId, job.file, undefined, conflictMode, job.targetPrefix, job.targetLabel, job.targetParentId);
+        }));
+      } catch (error) {
 			const message = error instanceof Error ? error.message : "Folder upload preparation failed.";
 			setActionError(message);
 			for (const job of jobs) {
-				updateTransfer(job.transferId, { status: "error", statusLabel: "Upload failed", errorMessage: message });
+				const targetParentId = folderIDs.get(job.directoryPath);
+				updateTransfer(job.transferId, { status: "error", targetParentId, statusLabel: "Upload failed", errorMessage: targetParentId ? message : `${message} Select the folder again to retry.` });
 			}
 		}
 	})();
@@ -834,7 +884,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
         )
       }
       transferDrawer={
-        <TransferDrawer
+        <TransferDrawer onRetry={handleRetryTransfer}
           transfers={transfers}
 			onToggleStatus={handleToggleTransfer}
           onRemove={handleRemoveTransfer}
@@ -1237,29 +1287,6 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   );
 }
 
-async function requestUploadCompletion(uploadId: string, expectedSHA256: string, signal: AbortSignal) {
-	return clientApiFetch<BackendUploadReservation>(`/api/uploads/${encodeURIComponent(uploadId)}/complete`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ expected_sha256: expectedSHA256 }),
-		signal,
-	});
-}
-
-function abortableDelay(milliseconds: number, signal: AbortSignal) {
-	return new Promise<void>((resolve, reject) => {
-		const abort = () => {
-			window.clearTimeout(timeout);
-			reject(new DOMException("Upload aborted", "AbortError"));
-		};
-		const timeout = window.setTimeout(() => {
-			signal.removeEventListener("abort", abort);
-			resolve();
-		}, milliseconds);
-		signal.addEventListener("abort", abort, { once: true });
-	});
-}
-
 function SearchFilterBar({ filters }: { filters: NonNullable<ArchiveContext["searchFilters"]> }) {
 	const fieldClass = "rounded-[14px] bg-[var(--color-surface-strong)] px-3 py-2.5 text-sm text-[var(--color-text)] outline-none";
 	return (
@@ -1296,68 +1323,8 @@ function SearchFilterBar({ filters }: { filters: NonNullable<ArchiveContext["sea
 	);
 }
 
-async function loadActiveUploadReservation(uploadId: string): Promise<BackendUploadReservation> {
-	return clientApiFetch<BackendUploadReservation>(`/api/uploads/${encodeURIComponent(uploadId)}`);
-}
-
-async function uploadMultipartFile({
-	reservation,
-	file,
-	signal,
-	onProgress,
-}: {
-	reservation: BackendUploadReservation;
-	file: File;
-	signal: AbortSignal;
-	onProgress: (loadedBytes: number) => void;
-}) {
-	const partSize = reservation.part_size;
-	if (!partSize || partSize <= 0) {
-		throw new Error("Multipart upload did not provide a valid part size.");
-	}
-	const partCount = Math.ceil(file.size / partSize);
-	const completedParts = new Map(
-		(reservation.uploaded_parts ?? []).map((part) => [part.part_number, part.size]),
-	);
-	let completedBytes = Array.from(completedParts.values()).reduce((sum, size) => sum + size, 0);
-	onProgress(completedBytes);
-
-	const missingParts = Array.from({ length: partCount }, (_, index) => index + 1)
-		.filter((partNumber) => !completedParts.has(partNumber));
-	for (let batchStart = 0; batchStart < missingParts.length; batchStart += PRESIGNED_PART_BATCH_SIZE) {
-		const partNumbers = missingParts.slice(batchStart, batchStart + PRESIGNED_PART_BATCH_SIZE);
-		const presigned = await clientApiFetch<BackendUploadPartURLs>(
-			`/api/uploads/${encodeURIComponent(reservation.upload_id)}/parts/presign`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ part_numbers: partNumbers }),
-			},
-		);
-		const urls = new Map(presigned.parts.map((part) => [part.part_number, part.url]));
-		const inFlight = new Map<number, number>();
-		await Promise.all(partNumbers.map(async (partNumber) => {
-			const url = urls.get(partNumber);
-			if (!url) {
-				throw new Error(`Multipart upload did not provide a URL for part ${partNumber}.`);
-			}
-			const start = (partNumber - 1) * partSize;
-			const end = Math.min(start + partSize, file.size);
-			const part = file.slice(start, end, file.type || "application/octet-stream");
-			await uploadBlobWithProgress({
-				url,
-				data: part,
-				signal,
-				onProgress: (loadedBytes) => {
-					inFlight.set(partNumber, loadedBytes);
-					onProgress(completedBytes + Array.from(inFlight.values()).reduce((sum, bytes) => sum + bytes, 0));
-				},
-			});
-			completedBytes += part.size;
-			inFlight.delete(partNumber);
-			onProgress(completedBytes);
-		}));
-	}
+async function loadActiveUploadReservation(uploadId: string, signal: AbortSignal): Promise<BackendUploadReservation> {
+	return retryUploadRequest(() => clientApiFetch<BackendUploadReservation>(`/api/uploads/${encodeURIComponent(uploadId)}`, { signal }), signal);
 }
 
 function CollectionsSection({ context }: { context: ArchiveContext }) {
