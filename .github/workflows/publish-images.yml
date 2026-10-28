@@ -54,15 +54,20 @@ jobs:
             "ghcr.io/suraj7026/drive-webui:candidate-$GITHUB_SHA"
           docker run -d --name drive-gateway-check --network drive-publication \
             --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp \
-            --memory=128m --cpus=0.25 -p 127.0.0.1:14080:8080 \
+            --memory=128m --cpus=0.25 \
             "ghcr.io/suraj7026/drive-gateway:candidate-$GITHUB_SHA"
           ready=false
           for attempt in $(seq 1 30); do
-            if curl --fail --silent --max-time 2 http://127.0.0.1:14080/login >/dev/null; then ready=true; break; fi
+            if docker exec drive-gateway-check wget -q -T 2 -O /dev/null http://127.0.0.1:8080/login; then ready=true; break; fi
             sleep 1
           done
           test "$ready" = true
-          node deploy/publication/check.mjs http://127.0.0.1:14080
+          docker run --name drive-http-check --network drive-publication \
+            --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --memory=256m --cpus=0.5 \
+            -v "$PWD/deploy/publication/check.mjs:/checks/check.mjs:ro" \
+            node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 \
+            node /checks/check.mjs http://drive-gateway-check:8080
           docker exec surajdrive-frontend sh -c 'test "$(id -u)" != 0 && test ! -f /app/.env'
       - name: Publish both candidates only after all checks pass
         env:
