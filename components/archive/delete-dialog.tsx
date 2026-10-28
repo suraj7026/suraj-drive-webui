@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Trash2, TriangleAlert } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { formatBytes } from "@/lib/utils/format";
@@ -13,16 +13,13 @@ type DeleteDialogProps = {
   onConfirm: (item: FileItem) => Promise<void> | void;
 };
 
-export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogProps) {
+export function DeleteDialog(props: DeleteDialogProps) {
+  return props.open ? <DeleteDialogContent key={`${props.item?.bucketId}:${props.item?.id}`} {...props} /> : null;
+}
+
+function DeleteDialogContent({ open, item, onClose, onConfirm }: DeleteDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setError(null);
-      setSubmitting(false);
-    }
-  }, [open]);
 
   async function handleConfirm() {
     if (!item) {

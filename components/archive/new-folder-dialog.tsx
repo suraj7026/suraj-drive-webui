@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 
 type NewFolderDialogProps = {
@@ -10,18 +10,20 @@ type NewFolderDialogProps = {
   onSubmit: (name: string) => Promise<void> | void;
 };
 
-export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFolderDialogProps) {
+export function NewFolderDialog(props: NewFolderDialogProps) {
+  return props.open ? <NewFolderDialogContent {...props} /> : null;
+}
+
+function NewFolderDialogContent({ open, parentLabel, onClose, onSubmit }: NewFolderDialogProps) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setName("");
-      setError(null);
-      setSubmitting(false);
+  function handleClose() {
+    if (!submitting) {
+      onClose();
     }
-  }, [open]);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,7 +48,7 @@ export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFol
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title="New folder"
       description={`Created inside ${parentLabel}.`}
       className="max-w-[460px]"
@@ -59,7 +61,6 @@ export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFol
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Travel notes"
-            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             className="w-full rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm shadow-[inset_0_0_0_1px_var(--color-outline)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
           />
@@ -70,7 +71,7 @@ export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFol
         <div className="mt-2 flex items-center justify-end gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={submitting}
             className="rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] shadow-[inset_0_0_0_1px_var(--color-outline)] disabled:opacity-50"
           >

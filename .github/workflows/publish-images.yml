@@ -2,7 +2,7 @@ name: Publish Drive WebUI and gateway candidates
 on:
   push:
     branches: [migration/image-publication]
-    paths: [.github/workflows/publish-images.yml, deploy/publication/**]
+    paths: [.github/workflows/publish-images.yml, deploy/publication/**, app/**, components/**, lib/**, tests/**, package.json, package-lock.json, vitest.config.mts]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,8 +20,13 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Install locked dependencies and lint
-        run: npm ci && npm run lint
+      - name: Install locked dependencies and validate application
+        run: |
+          npm ci
+          npm run lint -- --max-warnings=0
+          npm test
+          npx tsc --noEmit
+          npm audit --omit=dev --audit-level=high
       - name: Build isolated candidates
         run: |
           set -Eeuo pipefail

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 const origin = process.argv[2];
 assert.ok(origin, 'Supply an isolated gateway origin');
+const health = await fetch(`${origin}/healthz`, { signal: AbortSignal.timeout(10000) });
+assert.equal(health.status, 200);
+assert.equal(await health.text(), 'OK\n');
 const login = await fetch(`${origin}/login`, { signal: AbortSignal.timeout(10000) });
 assert.equal(login.status, 200);
 const html = await login.text();

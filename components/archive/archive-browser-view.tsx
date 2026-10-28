@@ -597,7 +597,6 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                       <span className="hidden text-sm text-[var(--color-text-muted)] sm:block">
                         {item.sizeBytes ? formatBytes(item.sizeBytes) : "--"}
                       </span>
-                      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                       <div className="flex items-center justify-self-end gap-1 text-[var(--color-text-soft)] sm:gap-2" onClick={(e) => e.stopPropagation()}>
                         {href ? (
                           <Link href={href} className="rounded-full p-2 hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)]">
