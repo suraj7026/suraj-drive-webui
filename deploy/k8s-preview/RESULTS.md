@@ -3,7 +3,9 @@
 Application source: `20b42a80c059976117fe7a7b3d96a74b48071e9d`
 Publication: https://github.com/suraj7026/suraj-drive-webui/actions/runs/40716493286
 Namespace: `drive-web-preview`; worker: `surajhomeserver2`
-Private gateway: `http://10.43.53.78`; production remains `localhost:4080`.
+Private gateway: `http://10.43.53.78`; public origin remains `localhost:4080`.
+The approved [opt-in route](../canary/RESULTS.md) sends only cookie-selected requests
+through that existing gateway to Kubernetes; default traffic remains on Docker.
 
 ## Deployed images
 
@@ -49,14 +51,15 @@ unchanged from 2026-10-27. Public Thirty, Drive login, Portfolio and MinIO healt
 checks returned 200 after preview deployment. Latest production WebUI deploy run
 remains 35459377795; neither main nor its workflow was changed. Outpost untouched.
 
-No production routing cutover, shared-tunnel restart, backend replacement, database
+No global production routing cutover, shared-tunnel restart, backend replacement, database
 migration, storage movement, duplicate resume consumer, deletion of old production
 containers/images/volumes, or CI deployment credential provisioning occurred.
 
 Completed OAuth in the preview, authenticated browsing, real upload/download
 operations and load behavior remain unverified. The operator reported successful
 sign-in in another browser, which does not establish private-preview validation.
-The first isolated browser became unresponsive; browser troubleshooting is ongoing.
+The browser-interception approach was abandoned after Google rejected the automated
+browser. The approved opt-in gateway route now enables ordinary-browser validation.
 No existing browser sessions or cookies were imported.
 
 The five prior development dependency findings are resolved. The updated candidate

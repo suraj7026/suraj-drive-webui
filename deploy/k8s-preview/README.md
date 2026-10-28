@@ -1,10 +1,12 @@
 # Drive web tier — private Kubernetes preview
 
-This is an actual isolated deployment, **not a public production cutover**.
+This is an isolated deployment, **not a global production cutover**.
 Namespace: `drive-web-preview`; node: `surajhomeserver2`; one frontend and one
 Nginx gateway. The existing main-host Docker API remains the only backend.
-Outpost, databases, object storage, production containers, routes and existing
-production workflows are not modified.
+An approved [opt-in public route](../canary/RESULTS.md) now allows normal-browser
+validation through the existing Drive gateway. Default traffic remains on Docker.
+Only that gateway config was changed/reloaded; Outpost, databases, object storage,
+container images/start times and existing production workflows are unchanged.
 
 ## Runtime design
 
@@ -74,8 +76,8 @@ it to production without separate approval. The existing Docker origin remains
 ## Still gated
 
 Controlled completed OAuth and authenticated browse/upload/download tests, review
-of source-versus-running-backend drift, approval for public routing and the shared
-Cloudflare restart, and eventual scoped deployment-pipeline replacement. The legacy
+of source-versus-running-backend drift, approval for global public routing and any
+shared Cloudflare restart, and eventual scoped deployment-pipeline replacement. The legacy
 API's `/api/ready` still returns 401. Production and development npm dependency
 audits are now clean; this does not certify OS/image dependencies. No HPA or data
 migration is included.

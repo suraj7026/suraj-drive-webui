@@ -27,7 +27,8 @@ Publication run 40716493286 succeeded for source
 20b42a80c059976117fe7a7b3d96a74b48071e9d. Both published images were rolled out to
 the private Kubernetes preview and passed smoke, network and runtime-hardening
 checks. Existing 36062af publication and rollback-drill evidence remain historical
-records for the prior candidate. Public routing remains unchanged.
+records for the prior candidate. Default public traffic remains on Docker; the
+approved opt-in canary route is documented in ../canary/RESULTS.md.
 
 Public cutover still requires controlled signed-in validation and privileged
 Cloudflare configuration/restart access. Do not infer completed authentication

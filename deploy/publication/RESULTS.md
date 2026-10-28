@@ -23,7 +23,9 @@ Both exact manifests were anonymously accessible from the main host. They are no
 deployed privately in Kubernetes namespace `drive-web-preview` on the worker.
 See [preview results](../k8s-preview/RESULTS.md) for live validation and rollback
 evidence. **Publication and private deployment are not a production cutover.**
-The live site still uses the original Docker containers and existing backend.
+Default live traffic still uses the original Docker containers and existing backend.
+An approved [opt-in route](../canary/RESULTS.md) now enables normal-browser preview
+validation; this is not a global cutover.
 
 The original local worktree remains untouched. Main has not been merged or pushed;
 its production workflow remains unchanged, with latest run 35459377795. Merging
