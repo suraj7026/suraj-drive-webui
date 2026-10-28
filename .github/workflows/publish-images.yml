@@ -1,0 +1,87 @@
+name: Publish Drive WebUI and gateway candidates
+on:
+  push:
+    branches: [migration/image-publication]
+    paths: [.github/workflows/publish-images.yml, deploy/publication/**]
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: drive-web-candidate-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies and lint
+        run: npm ci && npm run lint
+      - name: Build isolated candidates
+        run: |
+          set -Eeuo pipefail
+          for component in webui gateway; do
+            if [ "$component" = webui ]; then
+              docker build --platform linux/amd64 -f deploy/publication/web.Dockerfile \
+                --build-arg NEXT_PUBLIC_API_URL=https://drive.sudarshanrajagopalan.one/drive-api \
+                --label org.opencontainers.image.source=https://github.com/suraj7026/suraj-drive-webui \
+                --label org.opencontainers.image.revision="$GITHUB_SHA" \
+                -t "ghcr.io/suraj7026/drive-webui:candidate-$GITHUB_SHA" .
+            else
+              docker build --platform linux/amd64 \
+                --label org.opencontainers.image.source=https://github.com/suraj7026/suraj-drive-webui \
+                --label org.opencontainers.image.revision="$GITHUB_SHA" \
+                -t "ghcr.io/suraj7026/drive-gateway:candidate-$GITHUB_SHA" deploy/publication/gateway
+            fi
+          done
+      - name: Validate web tier with isolated mock backend
+        run: |
+          set -Eeuo pipefail
+          docker network create --internal drive-publication
+          base=nginxinc/nginx-unprivileged@sha256:e2a8fca8aa356d66159aaf8a877a9c126773635adf210503eefaaeaffeed6ad7
+          docker run -d --name surajdrive-backend --network drive-publication \
+            --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp \
+            -v "$PWD/deploy/publication/mock-backend.conf:/etc/nginx/conf.d/default.conf:ro" "$base"
+          docker run -d --name surajdrive-frontend --network drive-publication \
+            --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp \
+            --memory=768m --cpus=1 \
+            -e API_URL=http://surajdrive-backend:4001 -e BACKEND_URL=http://surajdrive-backend:4001 \
+            "ghcr.io/suraj7026/drive-webui:candidate-$GITHUB_SHA"
+          docker run -d --name drive-gateway-check --network drive-publication \
+            --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp \
+            --memory=128m --cpus=0.25 -p 127.0.0.1:14080:8080 \
+            "ghcr.io/suraj7026/drive-gateway:candidate-$GITHUB_SHA"
+          ready=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:14080/login >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          test "$ready" = true
+          node deploy/publication/check.mjs http://127.0.0.1:14080
+          docker exec surajdrive-frontend sh -c 'test "$(id -u)" != 0 && test ! -f /app/.env'
+      - name: Publish both candidates only after all checks pass
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          for name in drive-webui drive-gateway; do
+            image="ghcr.io/suraj7026/$name:candidate-$GITHUB_SHA"
+            docker push "$image"
+            digest=$(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' | jq -r .digest)
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+            printf 'PUBLISHED_IMAGE=ghcr.io/suraj7026/%s@%s\n' "$name" "$digest"
+            printf 'Candidate: `ghcr.io/suraj7026/%s@%s`\n' "$name" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Stop isolated CI containers
+        if: always()
+        run: |
+          for name in drive-gateway-check surajdrive-frontend surajdrive-backend; do
+            if docker container inspect "$name" >/dev/null 2>&1; then docker stop --timeout 30 "$name"; fi
+          done

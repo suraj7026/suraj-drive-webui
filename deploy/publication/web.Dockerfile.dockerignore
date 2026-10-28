@@ -1,0 +1,17 @@
+**
+!package.json
+!package-lock.json
+!app/
+!app/**
+!components/
+!components/**
+!lib/
+!lib/**
+!public/
+!public/**
+!next.config.ts
+!tsconfig.json
+!postcss.config.mjs
+**/.env*
+**/.DS_Store
+**/._*
