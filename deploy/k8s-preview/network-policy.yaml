@@ -1,0 +1,74 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: runtime-dns-and-existing-api
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - ipBlock: {cidr: 192.168.1.37/32}
+      ports:
+        - {protocol: TCP, port: 4001}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-to-webui
+spec:
+  podSelector:
+    matchLabels: {app: drive-gateway}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app: drive-webui}
+      ports:
+        - {protocol: TCP, port: 4000}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: webui-from-gateway
+spec:
+  podSelector:
+    matchLabels: {app: drive-webui}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app: drive-gateway}
+      ports:
+        - {protocol: TCP, port: 4000}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-from-main-host
+spec:
+  podSelector:
+    matchLabels: {app: drive-gateway}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock: {cidr: 192.168.1.37/32}
+        # Observed flannel source for main-host traffic to worker pods.
+        - ipBlock: {cidr: 10.42.0.0/32}
+      ports:
+        - {protocol: TCP, port: 8080}

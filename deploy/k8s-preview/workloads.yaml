@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drive-webui
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  minReadySeconds: 10
+  progressDeadlineSeconds: 240
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels: {app: drive-webui}
+  template:
+    metadata:
+      labels: {app: drive-webui}
+    spec:
+      serviceAccountName: web-runtime
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/hostname: surajhomeserver2
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile: {type: RuntimeDefault}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: webui
+          image: ghcr.io/suraj7026/drive-webui@sha256:8a50c982ca7acf13c1d5245d05b133d96a083c4ee6d7dce65a73a9982d02ddb9
+          imagePullPolicy: Always
+          ports:
+            - {name: http, containerPort: 4000}
+          env:
+            - {name: API_URL, value: "http://surajdrive-backend:4001"}
+            - {name: BACKEND_URL, value: "http://surajdrive-backend:4001"}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi, ephemeral-storage: 32Mi}
+            limits: {cpu: "1", memory: 768Mi, ephemeral-storage: 128Mi}
+          startupProbe:
+            httpGet: {path: /login, port: http}
+            periodSeconds: 2
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /login, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /login, port: http}
+            periodSeconds: 15
+            timeoutSeconds: 3
+          lifecycle:
+            preStop:
+              exec: {command: [/bin/sh, -c, "sleep 5"]}
+          volumeMounts:
+            - {name: temporary, mountPath: /tmp}
+            - {name: cache, mountPath: /app/.next/cache}
+      volumes:
+        - name: temporary
+          emptyDir: {medium: Memory, sizeLimit: 64Mi}
+        - name: cache
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drive-gateway
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  minReadySeconds: 10
+  progressDeadlineSeconds: 240
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels: {app: drive-gateway}
+  template:
+    metadata:
+      labels: {app: drive-gateway}
+    spec:
+      serviceAccountName: web-runtime
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/hostname: surajhomeserver2
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile: {type: RuntimeDefault}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: gateway
+          image: ghcr.io/suraj7026/drive-gateway@sha256:7ff128bba2c63bf156990a784c332c07847b5f974842854feb1e89c4bd0f5438
+          imagePullPolicy: Always
+          ports:
+            - {name: http, containerPort: 8080}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 25m, memory: 32Mi, ephemeral-storage: 16Mi}
+            limits: {cpu: 250m, memory: 128Mi, ephemeral-storage: 64Mi}
+          startupProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 15
+            timeoutSeconds: 2
+          lifecycle:
+            preStop:
+              exec:
+                command: [/bin/sh, -c, "sleep 5; nginx -s quit; while kill -0 1 2>/dev/null; do sleep 1; done"]
+          volumeMounts:
+            - {name: temporary, mountPath: /tmp}
+      volumes:
+        - name: temporary
+          emptyDir: {medium: Memory, sizeLimit: 16Mi}
