@@ -31,7 +31,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: webui
-          image: ghcr.io/suraj7026/drive-webui@sha256:8a50c982ca7acf13c1d5245d05b133d96a083c4ee6d7dce65a73a9982d02ddb9
+          image: ghcr.io/suraj7026/drive-webui@sha256:93ab2543c0731231c994f1ee60ee5b6f32310f556c650503675c9710bb36e491
           imagePullPolicy: Always
           ports:
             - {name: http, containerPort: 4000}
@@ -103,7 +103,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: gateway
-          image: ghcr.io/suraj7026/drive-gateway@sha256:7ff128bba2c63bf156990a784c332c07847b5f974842854feb1e89c4bd0f5438
+          image: ghcr.io/suraj7026/drive-gateway@sha256:2ca54f1c38941ce5a7a9a356798e3b97630eee3fddd62ccfff9eb990a0190f0b
           imagePullPolicy: Always
           ports:
             - {name: http, containerPort: 8080}

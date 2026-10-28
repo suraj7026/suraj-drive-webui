@@ -8,7 +8,7 @@ production workflows are not modified.
 
 ## Runtime design
 
-- Immutable GHCR images from successful publication run 40713735660. Both digests
+- Immutable GHCR images from successful publication run 40716493286. Both digests
   were verified anonymously accessible before deployment; no pull secret needed.
 - Restricted Pod Security admission, non-root UIDs, RuntimeDefault seccomp,
   read-only root filesystems, dropped capabilities, no privilege escalation and
@@ -76,8 +76,8 @@ it to production without separate approval. The existing Docker origin remains
 Controlled completed OAuth and authenticated browse/upload/download tests, review
 of source-versus-running-backend drift, approval for public routing and the shared
 Cloudflare restart, and eventual scoped deployment-pipeline replacement. The legacy
-API's `/api/ready` still returns 401. Five development-tool dependency advisories
-remain (four high, one low); production dependency audit is clean. No HPA or data
+API's `/api/ready` still returns 401. Production and development npm dependency
+audits are now clean; this does not certify OS/image dependencies. No HPA or data
 migration is included.
 
 **Do not merge this branch casually:** pushing/merging to main triggers the existing

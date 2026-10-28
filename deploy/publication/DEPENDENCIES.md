@@ -23,9 +23,11 @@ npm audit all passed locally. The audit now reports zero findings across product
 supply chain. Publication now enforces the full audit at low severity and above,
 rather than checking only high/critical runtime dependencies.
 
-A new publication and digest-pinned private-preview rollout are required before
-this remediation can be considered deployed. Existing 36062af publication and
-rollback evidence remain historical records for the prior candidate.
+Publication run 40716493286 succeeded for source
+20b42a80c059976117fe7a7b3d96a74b48071e9d. Both published images were rolled out to
+the private Kubernetes preview and passed smoke, network and runtime-hardening
+checks. Existing 36062af publication and rollback-drill evidence remain historical
+records for the prior candidate. Public routing remains unchanged.
 
 Public cutover still requires controlled signed-in validation and privileged
 Cloudflare configuration/restart access. Do not infer completed authentication

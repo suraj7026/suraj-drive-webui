@@ -1,25 +1,26 @@
 # Private preview verification — 2026-10-28
 
-Application source: `36062af5f87e9267617b0dfe323e594ec65f83f3`
-Publication: https://github.com/suraj7026/suraj-drive-webui/actions/runs/40713735660
+Application source: `20b42a80c059976117fe7a7b3d96a74b48071e9d`
+Publication: https://github.com/suraj7026/suraj-drive-webui/actions/runs/40716493286
 Namespace: `drive-web-preview`; worker: `surajhomeserver2`
 Private gateway: `http://10.43.53.78`; production remains `localhost:4080`.
 
 ## Deployed images
 
 ```text
-ghcr.io/suraj7026/drive-webui@sha256:8a50c982ca7acf13c1d5245d05b133d96a083c4ee6d7dce65a73a9982d02ddb9
-ghcr.io/suraj7026/drive-gateway@sha256:7ff128bba2c63bf156990a784c332c07847b5f974842854feb1e89c4bd0f5438
+ghcr.io/suraj7026/drive-webui@sha256:93ab2543c0731231c994f1ee60ee5b6f32310f556c650503675c9710bb36e491
+ghcr.io/suraj7026/drive-gateway@sha256:2ca54f1c38941ce5a7a9a356798e3b97630eee3fddd62ccfff9eb990a0190f0b
 ```
 
 Both Pod imageIDs match these published digests. Both have one Ready replica on
-the worker, with zero restarts. Observed idle memory: frontend 40–49 MiB, gateway
-8 MiB (not a load/capacity test). Both cluster nodes remain Ready.
+the worker, with zero restarts. Observed memory after the updated rollout: frontend
+45 MiB, gateway 7 MiB (not a load/capacity test).
 
 ## Passed
 
 - Publication: zero-warning lint, seven regression tests, TypeScript, runtime npm
-  audit, Docker builds, isolated HTTP/proxy tests, non-root and no embedded .env.
+  and development dependency audit (zero findings), Docker builds, isolated
+  HTTP/proxy tests, non-root and no embedded .env.
 - Server-side admission dry-run, Restricted Pod Security, resource quotas and
   scoped deployer permissions; deployer cannot read secrets.
 - Worker application-pod DNS and connectivity to the existing main-host API.
@@ -36,7 +37,7 @@ the worker, with zero restarts. Observed idle memory: frontend 40–49 MiB, gate
   writes with EROFS, /tmp remains writable, installed Next.js reports 16.4.3.
 - Frontend -> gateway connection is rejected while host -> gateway and frontend ->
   API succeed, consistent with the intended default-deny network policies.
-- Live rollback drill: a new frontend revision with an invalid readiness path
+- Live rollback drill on the preceding 36062af candidate: a new frontend revision with an invalid readiness path
   returned 404 and could not replace the healthy replica. A 35-second rollout
   timeout was expected. The existing replica continued serving login. Rollout undo
   restored the previous healthy template; the full smoke test passed afterwards.
@@ -52,9 +53,14 @@ No production routing cutover, shared-tunnel restart, backend replacement, datab
 migration, storage movement, duplicate resume consumer, deletion of old production
 containers/images/volumes, or CI deployment credential provisioning occurred.
 
-Completed OAuth, authenticated browsing, real upload/download operations and load
-behavior remain unverified. Runtime dependency audit has zero findings; the full
-build/development dependency audit still lists @babel/core (low), brace-expansion,
-browserslist, js-yaml and zod (high). Review them separately rather than claiming a
-fully vulnerability-free supply chain. Existing backend readiness/source/rollback
-blockers remain relevant to any future backend migration.
+Completed OAuth in the preview, authenticated browsing, real upload/download
+operations and load behavior remain unverified. The operator reported successful
+sign-in in another browser, which does not establish private-preview validation.
+The first isolated browser became unresponsive; browser troubleshooting is ongoing.
+No existing browser sessions or cookies were imported.
+
+The five prior development dependency findings are resolved. The updated candidate
+passed the full npm audit, publication and private rollout, then repeated smoke,
+network-policy and runtime-hardening checks. This audit is not a container/OS
+vulnerability certification. Existing backend readiness/source/rollback blockers
+remain relevant to any future backend migration.
