@@ -1,4 +1,9 @@
-# Private preview verification — 2026-10-28
+# Historical private preview verification — 2026-10-28
+
+**Superseded status:** the operator subsequently confirmed the signed-in checks,
+and Kubernetes became the default on 2026-10-29. See
+[cutover results](../default-route/RESULTS.md). The remainder records the pre-cutover
+state and its then-outstanding gates, not the current routing state.
 
 Application source: `20b42a80c059976117fe7a7b3d96a74b48071e9d`
 Publication: https://github.com/suraj7026/suraj-drive-webui/actions/runs/40716493286

@@ -1,12 +1,12 @@
-# Drive web tier — private Kubernetes preview
+# Drive web tier — production-serving Kubernetes deployment
 
-This is an isolated deployment, **not a global production cutover**.
-Namespace: `drive-web-preview`; node: `surajhomeserver2`; one frontend and one
-Nginx gateway. The existing main-host Docker API remains the only backend.
-An approved [opt-in public route](../canary/RESULTS.md) now allows normal-browser
-validation through the existing Drive gateway. Default traffic remains on Docker.
-Only that gateway config was changed/reloaded; Outpost, databases, object storage,
-container images/start times and existing production workflows are unchanged.
+**Kubernetes became the default on 2026-10-29.** See
+[cutover results](../default-route/RESULTS.md). The historical namespace name
+`drive-web-preview` is retained; it now serves normal production traffic.
+One frontend and one gateway run on `surajhomeserver2`. The existing Docker edge
+forwards to Kubernetes; the main-host Docker API remains the only backend.
+Only the Drive edge config was changed/reloaded at cutover. Outpost, databases,
+object storage, container images/start times and production workflows are unchanged.
 
 ## Runtime design
 
@@ -67,20 +67,20 @@ kubectl rollout status -n drive-web-preview deployment/drive-webui --timeout=240
 kubectl rollout status -n drive-web-preview deployment/drive-gateway --timeout=240s
 ```
 
-`rollback-check.sh` is an explicit **preview-only fault injection**, not an ordinary
-health check: it makes a surge replica fail readiness, confirms the original still
-serves, and restores the prior Deployment revision even on an error. Do not adapt
-it to production without separate approval. The existing Docker origin remains
-`localhost:4080`; no rollback involves deleting its containers/images/volumes.
+**The maintained `rollback-check.sh` now refuses to run:** this namespace serves
+production. Historical audit copies of that fault-injection drill must not be used
+against it. For deliberate routing rollback, inspect
+`deploy/default-route/rollback.sh`; it preserves old containers/images/volumes.
+The retained Docker edge origin remains `localhost:4080`.
 
 ## Still gated
 
-Controlled completed OAuth and authenticated browse/upload/download tests, review
-of source-versus-running-backend drift, approval for global public routing and any
-shared Cloudflare restart, and eventual scoped deployment-pipeline replacement. The legacy
-API's `/api/ready` still returns 401. Production and development npm dependency
-audits are now clean; this does not certify OS/image dependencies. No HPA or data
-migration is included.
+The operator confirmed Google sign-in and test upload/download before approving
+default routing. Still pending: scoped Kubernetes release automation, longer-term
+monitoring/load validation, and separately approved direct Cloudflare-to-K8s routing.
+The backend migration remains separate; its `/api/ready` still returns 401.
+Production/development npm audits were clean at publication, not an OS/image
+security certification. No HPA or data migration is included.
 
 **Do not merge this branch casually:** pushing/merging to main triggers the existing
 Compose deployment workflow. Preview manifests and evidence stay on

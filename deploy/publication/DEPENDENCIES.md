@@ -27,11 +27,12 @@ Publication run 40716493286 succeeded for source
 20b42a80c059976117fe7a7b3d96a74b48071e9d. Both published images were rolled out to
 the private Kubernetes preview and passed smoke, network and runtime-hardening
 checks. Existing 36062af publication and rollback-drill evidence remain historical
-records for the prior candidate. Default public traffic remains on Docker; the
-approved opt-in canary route is documented in ../canary/RESULTS.md.
+records for the prior candidate. Following operator-confirmed signed-in tests,
+Kubernetes became the default on 2026-10-29; see ../default-route/RESULTS.md.
 
-Public cutover still requires controlled signed-in validation and privileged
-Cloudflare configuration/restart access. Do not infer completed authentication
-from the unauthenticated smoke tests. Never collect passwords/session cookies in
+The approved default cutover retained the existing Docker edge and required no
+Cloudflare configuration change or restart. Direct Cloudflare-to-K8s routing still
+requires separate approval/access. Do not infer completed authentication from
+unauthenticated smoke tests; the functional gate was operator-confirmed. Never collect passwords/session cookies in
 chat, reuse arbitrary browser sessions, or bypass authentication to manufacture
 passing test results.

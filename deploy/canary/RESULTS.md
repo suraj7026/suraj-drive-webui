@@ -1,4 +1,9 @@
-# Opt-in routing verification — 2026-10-28
+# Historical opt-in routing verification — 2026-10-28
+
+**Superseded:** the operator confirmed signed-in validation and approved the
+[default cutover](../default-route/RESULTS.md) on 2026-10-29. The enable/disable
+links now only clear the obsolete cookie; default traffic uses Kubernetes. The
+following is the historical canary-stage record, not current routing guidance.
 
 The operator approved this change after Google rejected automated-browser sign-in.
 It is installed and validated, but completed Google sign-in and authenticated file

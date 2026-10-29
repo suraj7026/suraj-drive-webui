@@ -1,4 +1,8 @@
-# Approved opt-in Drive preview
+# Historical approved opt-in Drive preview
+
+**Kubernetes is now the default.** Use [default-route documentation](../default-route/README.md)
+for current operations. This directory preserves the prior canary implementation
+and tests. Do not apply this historical configuration to production unintentionally.
 
 The operator approved a temporary cookie-selected preview after Google rejected
 the automation-controlled browser. Use a normal, non-automated browser; do not

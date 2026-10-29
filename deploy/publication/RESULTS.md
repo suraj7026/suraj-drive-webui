@@ -1,4 +1,4 @@
-# Publication verification — updated 2026-10-28
+# Publication verification — updated 2026-10-29
 
 Branch: `migration/image-publication`
 Tested source: `20b42a80c059976117fe7a7b3d96a74b48071e9d`
@@ -19,13 +19,12 @@ ghcr.io/suraj7026/drive-webui@sha256:93ab2543c0731231c994f1ee60ee5b6f32310f556c6
 ghcr.io/suraj7026/drive-gateway@sha256:2ca54f1c38941ce5a7a9a356798e3b97630eee3fddd62ccfff9eb990a0190f0b
 ```
 
-Both exact manifests were anonymously accessible from the main host. They are now
-deployed privately in Kubernetes namespace `drive-web-preview` on the worker.
-See [preview results](../k8s-preview/RESULTS.md) for live validation and rollback
-evidence. **Publication and private deployment are not a production cutover.**
-Default live traffic still uses the original Docker containers and existing backend.
-An approved [opt-in route](../canary/RESULTS.md) now enables normal-browser preview
-validation; this is not a global cutover.
+Both exact manifests were anonymously accessible from the main host and deployed
+to Kubernetes namespace `drive-web-preview` on the worker. After the operator
+confirmed signed-in validation, the approved [default cutover](../default-route/RESULTS.md)
+made these same images serve normal traffic on 2026-10-29. No new image was built
+at cutover. The existing Docker edge and backend remain in use; the old Docker
+frontend remains available for rollback.
 
 The original local worktree remains untouched. Main has not been merged or pushed;
 its production workflow remains unchanged, with latest run 35459377795. Merging
@@ -39,5 +38,5 @@ new-folder-dialog.tsx and theme-toggle.tsx, plus two unused suppression warnings
 The successful run supersedes that blocked result. See LINT-FIX.md for the focused
 changes and local regression evidence. Run 40713735660 first resolved the lint
 failures; run 40716493286 additionally resolves all five remaining development
-dependency findings. See DEPENDENCIES.md. Authenticated private-preview operations
-remain unverified, as documented in preview results.
+dependency findings. See DEPENDENCIES.md. Signed-in validation was subsequently
+confirmed by the operator, not claimed as automated browser testing.
