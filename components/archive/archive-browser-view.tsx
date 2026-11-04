@@ -22,6 +22,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { clientApiFetch, uploadFileWithProgress, UploadError } from "@/lib/api/client";
+import { multipartThreshold, uploadMultipart } from "@/lib/uploads/multipart";
 import { ApiError } from "@/lib/api/core";
 import type { BackendPresignResponse } from "@/lib/models/backend";
 import { AppShell } from "@/components/shell/app-shell";
@@ -39,6 +40,8 @@ import { FilePreviewModal } from "@/components/archive/file-preview-modal";
 type ArchiveBrowserViewProps = {
   context: ArchiveContext;
 };
+
+const MAX_ACTIVE_UPLOADS = 3;
 
 const SORT_OPTIONS = [
   { key: "default", label: "Default order" },
@@ -62,6 +65,8 @@ const FILTER_OPTIONS = [
 export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const router = useRouter();
   const controllersRef = useRef<Record<string, AbortController>>({});
+  const pendingUploads = useRef<Array<() => Promise<void>>>([]);
+  const activeUploads = useRef(0);
   const [selectedId, setSelectedId] = useState<string | null>(context.defaultSelectedId);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -177,15 +182,41 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
     }
   }
 
-  async function uploadTransfer(transferId: string, file: File) {
+  async function uploadTransfer(transferId: string, file: File, controller: AbortController) {
     const requestedKey = currentPrefix ? `${currentPrefix}/${file.name}` : file.name;
-    const controller = new AbortController();
-    controllersRef.current[transferId] = controller;
-
     const maxAttempts = 2;
     let lastError: unknown;
 
+    function updateProgress(loadedBytes: number) {
+      updateTransfer(transferId, {
+        transferredBytes: loadedBytes,
+        status: "uploading",
+        statusLabel: `${formatBytes(loadedBytes)} of ${formatBytes(file.size)} uploaded`,
+      });
+    }
+
+    function markDone(objectKey: string) {
+      updateTransfer(transferId, {
+        objectKey,
+        transferredBytes: file.size,
+        status: "done",
+        statusLabel: `Uploaded to ${uploadTargetLabel}`,
+        errorMessage: undefined,
+      });
+      startTransition(() => router.refresh());
+    }
+
     try {
+      controller.signal.throwIfAborted();
+      if (file.size > multipartThreshold) {
+        updateTransfer(transferId, { status: "uploading", statusLabel: `Preparing upload to ${uploadTargetLabel}` });
+        const key = await uploadMultipart(requestedKey, file, controller.signal, updateProgress, () => {
+          updateTransfer(transferId, { statusLabel: "Finishing upload…" });
+        });
+        markDone(key);
+        return;
+      }
+
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         updateTransfer(transferId, {
           status: "uploading",
@@ -199,7 +230,8 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
         let presign: BackendPresignResponse;
         try {
           presign = await clientApiFetch<BackendPresignResponse>(
-            `/api/files/presign/upload?key=${encodeURIComponent(requestedKey)}`
+            `/api/files/presign/upload?key=${encodeURIComponent(requestedKey)}`,
+            { signal: controller.signal }
           );
         } catch (error) {
           lastError = error;
@@ -222,22 +254,11 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
             url: presign.url,
             file,
             signal: controller.signal,
-            onProgress: (loadedBytes) => {
-              updateTransfer(transferId, {
-                transferredBytes: loadedBytes,
-                status: "uploading",
-                statusLabel: `${formatBytes(loadedBytes)} of ${formatBytes(file.size)} uploaded`,
-              });
-            },
+            stallTimeoutMs: 90_000,
+            onProgress: updateProgress,
           });
 
-          updateTransfer(transferId, {
-            transferredBytes: file.size,
-            status: "done",
-            statusLabel: `Uploaded to ${uploadTargetLabel}`,
-            errorMessage: undefined,
-          });
-          startTransition(() => router.refresh());
+          markDone(presign.key);
           return;
         } catch (error) {
           if (error instanceof DOMException && error.name === "AbortError") {
@@ -266,6 +287,18 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
     }
   }
 
+  function startPendingUploads() {
+    while (activeUploads.current < MAX_ACTIVE_UPLOADS) {
+      const run = pendingUploads.current.shift();
+      if (!run) return;
+      activeUploads.current++;
+      void run().finally(() => {
+        activeUploads.current--;
+        startPendingUploads();
+      });
+    }
+  }
+
   function handleFilesSelected(files: FileList | null) {
     if (!files || files.length === 0) {
       return;
@@ -285,8 +318,11 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
         },
         ...current,
       ]);
-      void uploadTransfer(transferId, file);
+      const controller = new AbortController();
+      controllersRef.current[transferId] = controller;
+      pendingUploads.current.push(() => uploadTransfer(transferId, file, controller));
     }
+    startPendingUploads();
   }
 
   function handleOpenPreview(item: FileItem) {

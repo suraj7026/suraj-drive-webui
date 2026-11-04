@@ -16,9 +16,10 @@ export async function clientApiFetch<T>(pathname: string, init?: RequestInit) {
 
 type UploadOptions = {
   url: string;
-  file: File;
+  file: Blob;
   onProgress?: (loadedBytes: number) => void;
   signal?: AbortSignal;
+  stallTimeoutMs?: number;
 };
 
 export class UploadError extends Error {
@@ -37,14 +38,31 @@ export class UploadError extends Error {
   }
 }
 
-export function uploadFileWithProgress({ url, file, onProgress, signal }: UploadOptions) {
+export function uploadFileWithProgress({ url, file, onProgress, signal, stallTimeoutMs }: UploadOptions) {
   return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+
     const xhr = new XMLHttpRequest();
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    let stalled = false;
+
+    function resetStallTimer() {
+      if (!stallTimeoutMs) return;
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        stalled = true;
+        xhr.abort();
+      }, stallTimeoutMs);
+    }
 
     xhr.upload.addEventListener("progress", (event) => {
       if (!event.lengthComputable) {
         return;
       }
+      resetStallTimer();
       onProgress?.(event.loaded);
     });
 
@@ -78,16 +96,25 @@ export function uploadFileWithProgress({ url, file, onProgress, signal }: Upload
     });
 
     xhr.addEventListener("abort", () => {
+      if (stalled) {
+        reject(new UploadError("Upload stopped responding", { status: 0, retryable: true }));
+        return;
+      }
       reject(new DOMException("Upload aborted", "AbortError"));
     });
 
     const abortUpload = () => xhr.abort();
     signal?.addEventListener("abort", abortUpload, { once: true });
+    xhr.addEventListener("loadend", () => {
+      clearTimeout(stallTimer);
+      signal?.removeEventListener("abort", abortUpload);
+    }, { once: true });
 
     xhr.open("PUT", url);
     if (file.type) {
       xhr.setRequestHeader("Content-Type", file.type);
     }
+    resetStallTimer();
     xhr.send(file);
   });
 }
