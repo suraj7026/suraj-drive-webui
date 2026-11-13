@@ -4,9 +4,10 @@ import { getArchiveContext } from "@/lib/services/archive-service";
 
 type PageProps = {
   params: Promise<{ bucketId: string; path?: string[] }>;
+  searchParams: Promise<{ offset?: string }>;
 };
 
-export default async function ArchivePathPage({ params }: PageProps) {
+export default async function ArchivePathPage({ params, searchParams }: PageProps) {
   const { bucketId, path } = await params;
   let folderPath: string[];
   try {
@@ -18,7 +19,8 @@ export default async function ArchivePathPage({ params }: PageProps) {
   if (folderPath.some((segment) => segment.includes("/") || segment.includes("\\") || segment === "." || segment === "..")) {
     notFound();
   }
-  const context = await getArchiveContext(bucketId, folderPath);
+  const { offset } = await searchParams;
+  const context = await getArchiveContext(bucketId, folderPath, offset);
 
   if (!context) {
     notFound();

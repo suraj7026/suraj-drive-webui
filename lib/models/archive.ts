@@ -1,3 +1,4 @@
+import type { BackendPagination } from "@/lib/models/backend";
 import type { CurrentUser } from "@/lib/models/auth";
 import type { TransferItem } from "@/lib/models/transfers";
 
@@ -49,4 +50,5 @@ export type ArchiveContext = {
   defaultSelectedId: string | null;
   transferQueue: TransferItem[];
   emptyStateMessage?: string;
+  pagination?: { href: string; query?: string; page: BackendPagination };
 };

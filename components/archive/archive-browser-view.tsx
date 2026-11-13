@@ -687,6 +687,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                 : `${context.items.length} visible objects`}
             </span>
           </div>
+          {context.pagination && <ArchivePagination pagination={context.pagination} />}
         </section>
       </section>
 
@@ -731,6 +732,37 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
         onDownload={handleDownload}
       />
     </AppShell>
+  );
+}
+
+function ArchivePagination({ pagination }: { pagination: NonNullable<ArchiveContext["pagination"]> }) {
+  const { href, query, page } = pagination;
+  const previousOffset = Math.max(0, page.offset - page.limit);
+  const nextOffset = page.next_offset;
+
+  if (page.offset === 0 && nextOffset === undefined) {
+    return null;
+  }
+
+  const linkToOffset = (offset: number) => {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (offset > 0) params.set("offset", String(offset));
+    const search = params.toString();
+    return search ? `${href}?${search}` : href;
+  };
+
+  const linkClass = "rounded-full bg-[var(--color-surface-low)] px-4 py-2 hover:bg-[var(--color-surface-high)]";
+  return (
+    <nav aria-label="Archive pages" className="flex flex-wrap items-center justify-between gap-3 text-sm">
+      <span className="text-[var(--color-text-muted)]">
+        {page.returned ? `${page.offset + 1}–${page.offset + page.returned} of ${page.total}` : `0 shown of ${page.total}`}
+      </span>
+      <div className="flex gap-2">
+        {page.offset > 0 && <Link prefetch={false} className={linkClass} href={linkToOffset(previousOffset)}>Previous page</Link>}
+        {nextOffset !== undefined && <Link prefetch={false} className={linkClass} href={linkToOffset(nextOffset)}>Next page</Link>}
+      </div>
+    </nav>
   );
 }
 

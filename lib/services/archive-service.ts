@@ -1,12 +1,12 @@
 import type { ArchiveContext, Bucket, FileItem, FileType, SectionKey } from "@/lib/models/archive";
 import type { BackendFileObject, BackendFolderEntry, BackendListResponse, BackendSearchResponse } from "@/lib/models/backend";
-import { titleFromSegments } from "@/lib/utils/archive-path";
+import { buildArchiveHref, titleFromSegments } from "@/lib/utils/archive-path";
 import { serverApiFetch } from "@/lib/api/server";
 import { requireCurrentUser } from "@/lib/services/auth-service";
 
 const archiveDescription = "Private objects stored in your personal bucket.";
 
-export async function getArchiveContext(bucketId: string, path: string[]): Promise<ArchiveContext | null> {
+export async function getArchiveContext(bucketId: string, path: string[], offset?: string): Promise<ArchiveContext | null> {
   const user = await requireCurrentUser();
   const normalizedPath = path.filter(Boolean);
 
@@ -15,7 +15,7 @@ export async function getArchiveContext(bucketId: string, path: string[]): Promi
   }
 
   const prefix = joinPath(normalizedPath);
-  const response = await serverApiFetch<BackendListResponse>("/api/files" + toQueryString({ prefix }));
+  const response = await serverApiFetch<BackendListResponse>("/api/files" + toQueryString({ prefix, offset: validOffset(offset) }));
   const items = mapListingItems(response, user.bucket, user.name, normalizedPath);
 
   return {
@@ -28,6 +28,7 @@ export async function getArchiveContext(bucketId: string, path: string[]): Promi
     currentFolderLabel: normalizedPath.at(-1) ?? "My Archive",
     collections: [],
     items,
+    pagination: { href: buildArchiveHref(bucketId, normalizedPath), page: response.pagination },
     defaultSelectedId: items[0]?.id ?? null,
     transferQueue: [],
     emptyStateMessage: normalizedPath.length === 0
@@ -36,7 +37,7 @@ export async function getArchiveContext(bucketId: string, path: string[]): Promi
   };
 }
 
-export async function getSearchContext(query: string): Promise<ArchiveContext> {
+export async function getSearchContext(query: string, offset?: string): Promise<ArchiveContext> {
   const user = await requireCurrentUser();
   const trimmedQuery = query.trim();
 
@@ -57,7 +58,7 @@ export async function getSearchContext(query: string): Promise<ArchiveContext> {
     };
   }
 
-  const response = await serverApiFetch<BackendSearchResponse>("/api/search" + toQueryString({ q: trimmedQuery }));
+  const response = await serverApiFetch<BackendSearchResponse>("/api/search" + toQueryString({ q: trimmedQuery, offset: validOffset(offset) }));
   const items = response.results.map((file, index) => mapFile(file, user.bucket, user.name, index));
 
   return {
@@ -70,6 +71,7 @@ export async function getSearchContext(query: string): Promise<ArchiveContext> {
     currentFolderLabel: "Search Results",
     collections: [],
     items,
+    pagination: { href: "/search", query: trimmedQuery, page: response.pagination },
     defaultSelectedId: items[0]?.id ?? null,
     transferQueue: [],
     emptyStateMessage: `No files matched \"${trimmedQuery}\".`,
@@ -209,6 +211,13 @@ function sectionDescription(section: Exclude<SectionKey, "archive">): string {
 
 function joinPath(path: string[]) {
   return path.join("/");
+}
+
+function validOffset(value: string | undefined) {
+  if (!value || !/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
+    return "";
+  }
+  return value;
 }
 
 function toQueryString(query: Record<string, string>) {
