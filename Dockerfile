@@ -2,7 +2,8 @@
 
 FROM node:20-alpine AS deps
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirror.freedif.org|g' /etc/apk/repositories \
+ && apk add --no-cache libc6-compat
 COPY package.json package-lock.json ./
 RUN npm ci
 
