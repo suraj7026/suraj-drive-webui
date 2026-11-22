@@ -4,7 +4,7 @@ import { titleFromSegments } from "@/lib/utils/archive-path";
 import { serverApiFetch } from "@/lib/api/server";
 import { requireCurrentUser } from "@/lib/services/auth-service";
 
-const archiveDescription = "Private files stored in your personal drive.";
+const archiveDescription = "private files stored in your personal drive.";
 
 export async function getArchiveContext(bucketId: string, path: string[]): Promise<ArchiveContext | null> {
   const user = await requireCurrentUser();
@@ -21,19 +21,19 @@ export async function getArchiveContext(bucketId: string, path: string[]): Promi
   return {
     user,
     section: "archive" as const,
-    eyebrow: normalizedPath.length === 0 ? "The Archive" : `My Archive / ${normalizedPath.join(" / ")}`,
-    heading: normalizedPath.length === 0 ? "My Archive" : titleFromSegments(normalizedPath),
+    eyebrow: normalizedPath.length === 0 ? "the archive" : `my archive / ${normalizedPath.join(" / ")}`,
+    heading: normalizedPath.length === 0 ? "my archive" : titleFromSegments(normalizedPath),
     bucket: buildBucket(user.drive_id, "archive", archiveDescription),
     path: normalizedPath,
     currentFolderId: response.current_folder_id,
-    currentFolderLabel: normalizedPath.at(-1) ?? "My Archive",
+    currentFolderLabel: normalizedPath.at(-1) ?? "my archive",
     collections: [],
     items,
     defaultSelectedId: items[0]?.id ?? null,
     transferQueue: [],
     emptyStateMessage: normalizedPath.length === 0
-      ? "Upload a file or create a folder to start filling this drive."
-      : "This folder is empty.",
+      ? "upload a file or create a folder to start filling this drive."
+      : "this folder is empty.",
   };
 }
 
@@ -45,16 +45,16 @@ export async function getSearchContext(query: string, filters: Omit<SearchFilter
     return {
       user,
       section: "archive" as const,
-      eyebrow: "Archive Search",
-      heading: "Search the archive",
+      eyebrow: "archive search",
+      heading: "search the archive",
       bucket: buildBucket(user.drive_id, "archive", archiveDescription),
       path: [],
-      currentFolderLabel: "Search",
+      currentFolderLabel: "search",
       collections: [],
       items: [],
       defaultSelectedId: null,
       transferQueue: [],
-      emptyStateMessage: "Enter a file name in the search bar to search your drive.",
+      emptyStateMessage: "enter a file name in the search bar to search your drive.",
 	  searchFilters: { query: "", ...filters },
     };
   }
@@ -69,16 +69,16 @@ export async function getSearchContext(query: string, filters: Omit<SearchFilter
   return {
     user,
     section: "archive" as const,
-    eyebrow: "Archive Search",
-    heading: `Results for \"${trimmedQuery}\"`,
+    eyebrow: "archive search",
+    heading: `results for \"${trimmedQuery}\"`,
     bucket: buildBucket(user.drive_id, "archive", archiveDescription),
     path: [],
-    currentFolderLabel: "Search Results",
+    currentFolderLabel: "search results",
     collections: [],
     items,
     defaultSelectedId: items[0]?.id ?? null,
     transferQueue: [],
-    emptyStateMessage: `No files matched \"${trimmedQuery}\".`,
+    emptyStateMessage: `no files matched \"${trimmedQuery}\".`,
 	searchFilters: { query: trimmedQuery, ...filters },
   };
 }
@@ -86,13 +86,13 @@ export async function getSearchContext(query: string, filters: Omit<SearchFilter
 export async function getSharedFolderContext(itemId: string): Promise<ArchiveContext | null> {
 	const user = await requireCurrentUser();
 	try {
-		const response = await fetchCompleteItemEndpoint(`/api/items/${encodeURIComponent(itemId)}/children`, "Shared folder");
-		const items = mapListingItems(response, user.drive_id, "Shared with me", []);
+		const response = await fetchCompleteItemEndpoint(`/api/items/${encodeURIComponent(itemId)}/children`, "shared folder");
+		const items = mapListingItems(response, user.drive_id, "shared with me", []);
 		return {
-			user, section: "shared", eyebrow: "Shared with me", heading: "Shared folder",
-			bucket: buildBucket(user.drive_id, "shared", "A folder shared with you."),
-			path: [], currentFolderId: response.current_folder_id, currentFolderLabel: "Shared folder", collections: [], items,
-			defaultSelectedId: items[0]?.id ?? null, transferQueue: [], emptyStateMessage: "This shared folder is empty.",
+			user, section: "shared", eyebrow: "shared with me", heading: "shared folder",
+			bucket: buildBucket(user.drive_id, "shared", "a folder shared with you."),
+			path: [], currentFolderId: response.current_folder_id, currentFolderLabel: "shared folder", collections: [], items,
+			defaultSelectedId: items[0]?.id ?? null, transferQueue: [], emptyStateMessage: "this shared folder is empty.",
 		};
 	} catch {
 		return null;
@@ -107,16 +107,16 @@ export async function getSectionContext(section: Exclude<SectionKey, "archive">)
 		return {
 			user,
 			section,
-			eyebrow: "Recovery",
-			heading: "Trash",
-			bucket: buildBucket(user.drive_id, section, "Items are retained for 30 days before permanent deletion."),
+			eyebrow: "recovery",
+			heading: "trash",
+			bucket: buildBucket(user.drive_id, section, "items are retained for 30 days before permanent deletion."),
 			path: [],
-			currentFolderLabel: "Trash",
+			currentFolderLabel: "trash",
 			collections: [],
 			items,
 			defaultSelectedId: items[0]?.id ?? null,
 			transferQueue: [],
-			emptyStateMessage: "Trash is empty.",
+			emptyStateMessage: "trash is empty.",
 		};
 	}
 	if (section === "recent" || section === "starred" || section === "storage") {
@@ -128,7 +128,7 @@ export async function getSectionContext(section: Exclude<SectionKey, "archive">)
 		return {
 			user,
 			section,
-			eyebrow: section === "storage" ? "Storage" : "My Drive",
+			eyebrow: section === "storage" ? "storage" : "my drive",
 			heading: sectionTitle(section),
 			bucket: buildBucket(user.drive_id, section, sectionDescription(section)),
 			path: [],
@@ -137,7 +137,7 @@ export async function getSectionContext(section: Exclude<SectionKey, "archive">)
 			items,
 			defaultSelectedId: items[0]?.id ?? null,
 			transferQueue: [],
-			emptyStateMessage: section === "recent" ? "Files you open will appear here." : section === "starred" ? "Star important files and folders to find them here." : "No files are using storage.",
+			emptyStateMessage: section === "recent" ? "files you open will appear here." : section === "starred" ? "star important files and folders to find them here." : "no files are using storage.",
 			storageSummary: storage ? {
 				quotaBytes: storage.quota_bytes,
 				committedBytes: storage.committed_bytes,
@@ -150,27 +150,27 @@ export async function getSectionContext(section: Exclude<SectionKey, "archive">)
 	}
 	if (section === "shared") {
 		const response = await fetchCompleteShared();
-		const items = mapListingItems(response, user.drive_id, "Shared with me", []);
+		const items = mapListingItems(response, user.drive_id, "shared with me", []);
 		return {
 			user,
 			section,
-			eyebrow: "Collaboration",
-			heading: "Shared with me",
-			bucket: buildBucket(user.drive_id, section, "Files and folders other people shared with you."),
+			eyebrow: "collaboration",
+			heading: "shared with me",
+			bucket: buildBucket(user.drive_id, section, "files and folders other people shared with you."),
 			path: [],
-			currentFolderLabel: "Shared with me",
+			currentFolderLabel: "shared with me",
 			collections: [],
 			items,
 			defaultSelectedId: items[0]?.id ?? null,
 			transferQueue: [],
-			emptyStateMessage: "Files and folders shared with you will appear here.",
+			emptyStateMessage: "files and folders shared with you will appear here.",
 		};
 	}
 
   return {
     user,
     section,
-    eyebrow: "Backend Coverage",
+    eyebrow: "backend coverage",
     heading: sectionTitle(section),
     bucket: buildBucket(user.drive_id, section, sectionDescription(section)),
     path: [],
@@ -180,14 +180,14 @@ export async function getSectionContext(section: Exclude<SectionKey, "archive">)
     defaultSelectedId: null,
     transferQueue: [],
     emptyStateMessage:
-      "This view is waiting for its dedicated metadata-backed API before it can show real content.",
+      "this view is waiting for its dedicated metadata-backed api before it can show real content.",
   };
 }
 
 function buildBucket(id: string, kind: SectionKey, description: string): Bucket {
   return {
     id,
-    name: "My Archive",
+    name: "my archive",
     kind,
     description,
   };
@@ -386,7 +386,7 @@ async function fetchCompleteUserView(view: "recent" | "starred" | "storage"): Pr
 }
 
 async function fetchCompleteShared(): Promise<BackendListResponse> {
-	return fetchCompleteItemEndpoint("/api/shared", "Shared with me");
+	return fetchCompleteItemEndpoint("/api/shared", "shared with me");
 }
 
 async function fetchCompleteItemEndpoint(endpoint: string, label: string): Promise<BackendListResponse> {
@@ -532,30 +532,30 @@ function inferFileType(name: string, contentType: string): FileType {
 function sectionTitle(section: Exclude<SectionKey, "archive">): string {
   switch (section) {
     case "shared":
-      return "Shared";
+      return "shared";
 		case "recent":
-			return "Recent";
+			return "recent";
 		case "starred":
-			return "Starred";
+			return "starred";
 		case "storage":
-			return "Storage";
+			return "storage";
 		case "trash":
-			return "Trash";
+			return "trash";
   }
 }
 
 function sectionDescription(section: Exclude<SectionKey, "archive">): string {
   switch (section) {
     case "shared":
-      return "Collaboration spaces will appear here once the backend exposes shared metadata.";
+      return "collaboration spaces will appear here once the backend exposes shared metadata.";
 		case "recent":
-			return "Files and folders you opened most recently.";
+			return "files and folders you opened most recently.";
 		case "starred":
-			return "Your important files and folders.";
+			return "your important files and folders.";
 		case "storage":
-			return "Files ordered by storage used, including quota and version totals.";
+			return "files ordered by storage used, including quota and version totals.";
 		case "trash":
-			return "Items are retained for 30 days before permanent deletion.";
+			return "items are retained for 30 days before permanent deletion.";
   }
 }
 

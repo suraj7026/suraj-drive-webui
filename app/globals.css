@@ -164,3 +164,95 @@ input {
 *::-webkit-scrollbar {
   display: none;
 }
+
+/* Metro: typography and content define the interface. */
+:root {
+  --font-body: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --color-surface: #ffffff;
+  --color-surface-low: #f2f2f2;
+  --color-surface-high: #e7e7e7;
+  --color-surface-highest: #d6d6d6;
+  --color-surface-strong: #ffffff;
+  --color-surface-overlay: #ffffff;
+  --color-text: #111111;
+  --color-text-muted: #484848;
+  --color-text-soft: #656565;
+  --color-outline: #dedede;
+  --color-primary: #005a9e;
+  --color-primary-strong: #004578;
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface));
+  --color-highlight: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  --color-on-primary: #ffffff;
+  --color-secondary-soft: #e1ebf4;
+  --color-accent: #005a9e;
+  --color-hover-overlay: #e9f2fa;
+  --color-selection: #b8dcf5;
+  --gradient-body: #ffffff;
+  --gradient-surface-grid: none;
+  --shadow-ambient: none;
+}
+.dark {
+  --color-surface: #080808;
+  --color-surface-low: #1a1a1a;
+  --color-surface-high: #242424;
+  --color-surface-highest: #333333;
+  --color-surface-strong: #111111;
+  --color-surface-overlay: #080808;
+  --color-text: #ffffff;
+  --color-text-muted: #cccccc;
+  --color-text-soft: #aaaaaa;
+  --color-outline: #303030;
+  --color-primary: #69b7ee;
+  --color-primary-strong: #8ccaf5;
+  --color-primary-soft: #203d53;
+  --color-secondary-soft: #202b35;
+  --color-hover-overlay: #242424;
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 28%, var(--color-surface));
+  --color-highlight: color-mix(in srgb, var(--color-primary) 24%, transparent);
+  --gradient-body: #080808;
+  --shadow-ambient: none;
+}
+.ambient-panel { backdrop-filter: none; }
+.primary-gradient { background-image: none; background-color: var(--color-primary); color: var(--color-on-primary); }
+.primary-gradient:hover { background-color: var(--color-primary-strong); }
+.surface-grid { background-image: none; }
+.archive-shell :is([class*="rounded-"], [class*="rounded["]) { border-radius: 2px; }
+.archive-shell [class*="shadow-"] { box-shadow: none; }
+.archive-shell > div.flex { gap: 0; padding: 0; }
+.archive-shell > div.flex > aside { background: var(--color-surface); color: var(--color-text); padding: 2rem 1.4rem; border-right: 1px solid var(--color-outline); }
+.archive-shell > div.flex > aside :is(p, a, button, svg) { color: inherit; }
+.archive-shell > div.flex > aside nav a { font-size: 1rem; }
+.archive-shell > div.flex > aside nav a[aria-current="page"] { background: var(--color-primary); color: var(--color-on-primary); }
+.archive-shell > div.flex > aside nav a:not([aria-current="page"]):hover { background: transparent; color: var(--color-primary); }
+.archive-shell > div.flex > aside .primary-gradient { background: var(--color-primary); color: var(--color-on-primary); }
+.archive-shell > div.flex > aside .primary-gradient:hover { background: var(--color-primary-strong); }
+.archive-shell > div.flex > div { gap: 0; padding: 1.5rem 2rem 2rem; }
+.archive-shell header.ambient-panel,
+.archive-shell main.ambient-panel { background: transparent; box-shadow: none; }
+.archive-shell header.ambient-panel { padding: 1rem 0 1.5rem; }
+.metro-text-action { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0 0 .15rem; color: var(--color-text-muted); cursor: pointer; }
+.metro-text-action:hover,
+.metro-text-action.is-active,
+.metro-text-action[aria-current="page"] { color: var(--color-text); border-bottom-color: var(--color-primary); }
+.metro-text-action:disabled { cursor: default; opacity: .6; }
+.archive-shell header h1 { font-weight: 300; font-size: clamp(2.5rem, 4vw, 4rem); line-height: 1.05; letter-spacing: -.035em; }
+.archive-shell header h1 + * { margin-top: 0; }
+.archive-shell header p { letter-spacing: .04em; text-transform: lowercase; font-size: .8rem; }
+.archive-shell main.ambient-panel { padding: 1.5rem; }
+.archive-shell :is(button, a, input, select):focus-visible, .metro-login a:focus-visible { outline: 3px solid #efb900; outline-offset: 3px; }
+.metro-login { min-height: 100dvh; display: flex; flex-direction: column; background: var(--color-surface); color: var(--color-text); padding: clamp(1.5rem, 5vw, 5rem); }
+.metro-login-brand, .metro-login-footer { font-size: .9rem; letter-spacing: .02em; }
+.metro-login-brand span, .metro-login-footer span { opacity: .5; padding: 0 .4rem; }
+.metro-login-content { width: min(100%, 1100px); margin: auto; padding: 4rem 0 5rem; }
+.metro-login-kicker { font-size: 1.1rem; margin-bottom: 1.2rem; }
+.metro-login h1 { font-size: clamp(3.5rem, 8vw, 7.5rem); font-weight: 300; letter-spacing: -.055em; line-height: .98; }
+.metro-login-copy { max-width: 30rem; margin-top: 2rem; font-size: 1.1rem; line-height: 1.6; color: var(--color-text-muted); }
+.metro-login-action { display: inline-flex; justify-content: space-between; align-items: center; gap: 3rem; margin-top: 2.5rem; padding: 1.1rem 1.25rem; min-width: 17rem; background: var(--color-primary); color: var(--color-on-primary); font-weight: 600; transition: background-color .15s ease; }
+.metro-login-action:hover { background: var(--color-primary-strong); }
+.metro-login-action span { font-size: 1.5rem; line-height: 1; }
+@media (max-width: 1023px) { .archive-shell > div.flex > div { padding: .75rem; } .archive-shell header.ambient-panel { padding: .75rem .5rem 1rem; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .archive-shell *, .metro-login * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+.metro-login-notice { max-width: 32rem; margin-top: 1.5rem; padding-left: 1rem; border-left: 3px solid #ffdd61; line-height: 1.5; }
+.archive-shell .uppercase { text-transform: lowercase; letter-spacing: .04em; }
+.archive-shell > div.flex > aside :is(button, a).primary-gradient { color: var(--color-on-primary); }

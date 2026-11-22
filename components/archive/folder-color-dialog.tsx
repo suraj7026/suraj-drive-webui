@@ -21,7 +21,7 @@ export function FolderColorDialog({ item, onClose, onSubmit }: {
 	onSubmit: (color: string) => Promise<void>;
 }) {
 	return (
-		<Modal open onClose={onClose} title="Organize with color" className="max-w-md">
+		<Modal open onClose={onClose} title="organize with color" className="max-w-md">
 			<div>
 				<p className="mt-2 truncate text-sm text-[var(--color-text-muted)]">{item.name}</p>
 				<div className="mt-6 grid grid-cols-4 gap-3">
@@ -32,7 +32,7 @@ export function FolderColorDialog({ item, onClose, onSubmit }: {
 						</button>
 					))}
 				</div>
-				<button type="button" onClick={onClose} className="mt-6 w-full rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium">Cancel</button>
+				<button type="button" onClick={onClose} className="mt-6 w-full rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium">cancel</button>
 			</div>
 		</Modal>
 	);

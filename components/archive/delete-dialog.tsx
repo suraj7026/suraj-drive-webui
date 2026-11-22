@@ -47,7 +47,7 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
     <Modal
       open={open}
       onClose={handleClose}
-      title={isFolder ? "Move folder to trash" : "Move file to trash"}
+      title={isFolder ? "move folder to trash" : "move file to trash"}
       description={`This moves the ${targetLabel} to trash for 30 days before permanent deletion.`}
       className="max-w-[460px]"
     >
@@ -61,7 +61,7 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
               <p className="break-all text-sm font-medium text-[var(--color-text)]">{item.name}</p>
               <p className="mt-0.5 text-xs text-[var(--color-text-soft)]">
                 {isFolder
-                  ? "The folder and everything inside it will move to trash."
+                  ? "the folder and everything inside it will move to trash."
                   : `${item.sizeBytes !== undefined ? formatBytes(item.sizeBytes) : "Unknown size"} \u00b7 ${item.owner}`}
               </p>
             </div>
@@ -71,7 +71,7 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
         {isFolder ? (
           <div className="flex items-start gap-2 rounded-[14px] bg-[var(--color-warn-soft)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
             <TriangleAlert size={14} className="mt-0.5 shrink-0" />
-            <span>All files and subfolders inside this folder will also be deleted.</span>
+            <span>all files and subfolders inside this folder will also be deleted.</span>
           </div>
         ) : null}
 
@@ -84,7 +84,7 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
             disabled={submitting}
             className="rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] shadow-[inset_0_0_0_1px_var(--color-outline)] disabled:opacity-50"
           >
-            Cancel
+            cancel
           </button>
           <button
             type="button"
@@ -92,7 +92,7 @@ export function DeleteDialog({ open, item, onClose, onConfirm }: DeleteDialogPro
             disabled={submitting || !item}
             className="rounded-full bg-[var(--color-danger)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(220,38,38,0.28)] hover:bg-[var(--color-danger-strong)] disabled:opacity-60"
           >
-            {submitting ? "Moving..." : "Move to trash"}
+            {submitting ? "moving..." : "move to trash"}
           </button>
         </div>
       </div>

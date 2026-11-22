@@ -11,37 +11,37 @@ type NavItem = {
 export const navItems: NavItem[] = [
   {
     href: "/archive/my-archive",
-    label: "My Archive",
+    label: "my archive",
     icon: FolderOpen,
     match: (pathname: string) => pathname.startsWith("/archive"),
   },
 	{
 		href: "/recent",
-		label: "Recent",
+		label: "recent",
 		icon: Clock3,
 		match: (pathname: string) => pathname.startsWith("/recent"),
 	},
 	{
 		href: "/starred",
-		label: "Starred",
+		label: "starred",
 		icon: Star,
 		match: (pathname: string) => pathname.startsWith("/starred"),
 	},
   {
 		href: "/trash",
-		label: "Trash",
+		label: "trash",
 		icon: Trash2,
 		match: (pathname: string) => pathname.startsWith("/trash"),
 	},
 	{
     href: "/shared",
-    label: "Shared",
+    label: "shared",
     icon: Users,
     match: (pathname: string) => pathname.startsWith("/shared"),
   },
 	{
 		href: "/storage",
-		label: "Storage",
+		label: "storage",
 		icon: HardDrive,
 		match: (pathname: string) => pathname.startsWith("/storage"),
 	},

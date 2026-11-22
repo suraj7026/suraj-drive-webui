@@ -33,7 +33,7 @@ export function UploadDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Upload to your archive"
+      title="upload to your archive"
       description={`Files land in ${targetLabel}.`}
     >
       <div
@@ -55,16 +55,16 @@ export function UploadDialog({
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-[var(--color-surface-low)] text-[var(--color-primary)]">
           <CloudUpload size={24} />
         </div>
-        <p className="font-heading mt-5 text-xl font-semibold tracking-[-0.03em]">Drag and drop files</p>
+        <p className="font-heading mt-5 text-xl font-semibold tracking-[-0.03em]">drag and drop files</p>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--color-text-soft)]">
-          Files are uploaded directly to your bucket using presigned URLs.
+          files are uploaded directly to your bucket using presigned urls.
         </p>
 
         <input
           ref={inputRef}
           type="file"
           multiple
-          aria-label="Choose files to upload"
+          aria-label="choose files to upload"
           className="hidden"
           onChange={(event) => {
             onFilesSelected(event.target.files, conflictMode);
@@ -78,7 +78,7 @@ export function UploadDialog({
 			type="file"
 			multiple
 			{...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-			aria-label="Choose a folder to upload"
+			aria-label="choose a folder to upload"
 			className="hidden"
 			onChange={(event) => {
 				onFilesSelected(event.target.files, conflictMode);
@@ -87,21 +87,21 @@ export function UploadDialog({
 		/>
 
 		<div className="mt-6 flex flex-wrap justify-center gap-2">
-			<button type="button" onClick={() => inputRef.current?.click()} className="primary-gradient rounded-full px-5 py-3 text-sm font-semibold text-white">Browse files</button>
-			<button type="button" onClick={() => folderInputRef.current?.click()} className="rounded-full bg-[var(--color-surface-low)] px-5 py-3 text-sm font-semibold text-[var(--color-text)]">Upload folder</button>
+			<button type="button" onClick={() => inputRef.current?.click()} className="primary-gradient rounded-full px-5 py-3 text-sm font-semibold text-white">browse files</button>
+			<button type="button" onClick={() => folderInputRef.current?.click()} className="rounded-full bg-[var(--color-surface-low)] px-5 py-3 text-sm font-semibold text-[var(--color-text)]">upload folder</button>
 		</div>
 		<div className="mx-auto mt-5 grid max-w-sm gap-2 text-left">
-			<label htmlFor="upload-conflict-mode" className="text-xs font-medium text-[var(--color-text-muted)]">If a file has the same name</label>
+			<label htmlFor="upload-conflict-mode" className="text-xs font-medium text-[var(--color-text-muted)]">if a file has the same name</label>
 			<select id="upload-conflict-mode" value={conflictMode} onChange={(event) => setConflictMode(event.target.value as "keep_both" | "new_version")} className="rounded-[14px] bg-[var(--color-surface-low)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
-				<option value="keep_both">Keep both files</option>
-				<option value="new_version">Upload as a new version</option>
+				<option value="keep_both">keep both files</option>
+				<option value="new_version">upload as a new version</option>
 			</select>
 		</div>
       </div>
 
       {transfers.length > 0 ? (
         <div className="mt-5">
-          <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)]">Recent</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)]">recent</p>
           <div className="mt-3 grid max-h-[260px] gap-2 overflow-y-auto pr-1">
             {transfers.slice(0, 5).map((transfer) => {
               const percent = transfer.totalBytes > 0
@@ -120,7 +120,7 @@ export function UploadDialog({
                     </div>
                     <button
                       type="button"
-                      aria-label="Dismiss transfer"
+                      aria-label="dismiss transfer"
                       onClick={() => onRemoveTransfer(transfer.id)}
                       className="rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)]"
                     >

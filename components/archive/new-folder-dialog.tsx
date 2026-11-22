@@ -39,18 +39,18 @@ export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFol
     <Modal
       open={open}
       onClose={onClose}
-      title="New folder"
+      title="new folder"
       description={`Created inside ${parentLabel}.`}
       className="max-w-[460px]"
     >
       <form onSubmit={handleSubmit} className="grid gap-4">
         <label className="grid gap-2">
-          <span className="text-xs uppercase tracking-[0.24em] text-[var(--color-text-soft)]">Name</span>
+          <span className="text-xs uppercase tracking-[0.24em] text-[var(--color-text-soft)]">name</span>
           <input
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Travel notes"
+            placeholder="travel notes"
             autoFocus
             className="w-full rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm shadow-[inset_0_0_0_1px_var(--color-outline)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
           />
@@ -65,14 +65,14 @@ export function NewFolderDialog({ open, parentLabel, onClose, onSubmit }: NewFol
             disabled={submitting}
             className="rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] shadow-[inset_0_0_0_1px_var(--color-outline)] disabled:opacity-50"
           >
-            Cancel
+            cancel
           </button>
           <button
             type="submit"
             disabled={submitting}
             className="primary-gradient rounded-full px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
           >
-            {submitting ? "Creating..." : "Create folder"}
+            {submitting ? "creating..." : "create folder"}
           </button>
         </div>
       </form>

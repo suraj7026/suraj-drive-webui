@@ -98,7 +98,7 @@ export function CommentsDialog({ item, onClose }: { item: FileItem; onClose: () 
 	return (
 		<Modal open onClose={onClose} title={`Comments on “${item.name}”`} description="Use @email to mention someone who already has access." className="max-w-[700px]">
 			<div className="max-h-[52vh] space-y-4 overflow-y-auto pr-1">
-				{loading ? <p className="py-6 text-sm text-[var(--color-text-soft)]">Loading comments...</p> : threads.length === 0 ? <p className="py-6 text-sm text-[var(--color-text-soft)]">No comments yet.</p> : threads.map((thread) => (
+				{loading ? <p className="py-6 text-sm text-[var(--color-text-soft)]">loading comments...</p> : threads.length === 0 ? <p className="py-6 text-sm text-[var(--color-text-soft)]">no comments yet.</p> : threads.map((thread) => (
 					<div key={thread.id} className={`rounded-[24px] p-4 ${thread.resolved_at ? "bg-[var(--color-surface-low)] opacity-75" : "bg-[var(--color-surface-high)]"}`}>
 						<CommentCard comment={thread} onReply={beginReply} onEdit={beginEdit} onDelete={remove} onResolved={setResolved} />
 						{(replies.get(thread.id) ?? []).map((reply) => (
@@ -109,9 +109,9 @@ export function CommentsDialog({ item, onClose }: { item: FileItem; onClose: () 
 			</div>
 			{error ? <p className="mt-3 text-sm text-[var(--color-danger-text)]">{error}</p> : null}
 			<form onSubmit={submit} className="mt-5 space-y-3 border-t border-[var(--color-outline)] pt-4">
-				{replyTo || editing ? <div className="flex items-center justify-between text-xs text-[var(--color-text-soft)]"><span>{editing ? `Editing your comment` : `Replying to ${replyTo?.author_name}`}</span><button type="button" onClick={() => { setReplyTo(null); setEditing(null); setBody(""); }} className="font-medium text-[var(--color-primary)]">Cancel</button></div> : null}
-				<textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={10000} rows={3} placeholder={replyTo ? "Write a reply..." : "Add a comment..."} className="w-full resize-none rounded-[20px] bg-[var(--color-surface-low)] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40" />
-				<div className="flex justify-end"><button type="submit" disabled={submitting || !body.trim()} className="primary-gradient rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40">{submitting ? "Saving..." : editing ? "Save" : replyTo ? "Reply" : "Comment"}</button></div>
+				{replyTo || editing ? <div className="flex items-center justify-between text-xs text-[var(--color-text-soft)]"><span>{editing ? `Editing your comment` : `Replying to ${replyTo?.author_name}`}</span><button type="button" onClick={() => { setReplyTo(null); setEditing(null); setBody(""); }} className="font-medium text-[var(--color-primary)]">cancel</button></div> : null}
+				<textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={10000} rows={3} placeholder={replyTo ? "write a reply..." : "add a comment..."} className="w-full resize-none rounded-[20px] bg-[var(--color-surface-low)] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40" />
+				<div className="flex justify-end"><button type="submit" disabled={submitting || !body.trim()} className="primary-gradient rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40">{submitting ? "saving..." : editing ? "save" : replyTo ? "reply" : "comment"}</button></div>
 			</form>
 		</Modal>
 	);
@@ -125,13 +125,13 @@ function CommentCard({ comment, onReply, onEdit, onDelete, onResolved }: {
 	onResolved?: (comment: BackendComment, resolved: boolean) => void;
 }) {
 	return <div>
-		<div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{comment.author_name}</p><p className="text-xs text-[var(--color-text-soft)]">{formatDateLabel(comment.updated_at)}</p></div>{comment.resolved_at ? <span className="rounded-full bg-[var(--color-success-soft)] px-2 py-1 text-xs text-[var(--color-success-text)]">Resolved</span> : null}</div>
-		<p className={`mt-3 whitespace-pre-wrap text-sm ${comment.deleted ? "italic text-[var(--color-text-soft)]" : "text-[var(--color-text)]"}`}>{comment.deleted ? "Comment deleted" : comment.body}</p>
+		<div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{comment.author_name}</p><p className="text-xs text-[var(--color-text-soft)]">{formatDateLabel(comment.updated_at)}</p></div>{comment.resolved_at ? <span className="rounded-full bg-[var(--color-success-soft)] px-2 py-1 text-xs text-[var(--color-success-text)]">resolved</span> : null}</div>
+		<p className={`mt-3 whitespace-pre-wrap text-sm ${comment.deleted ? "italic text-[var(--color-text-soft)]" : "text-[var(--color-text)]"}`}>{comment.deleted ? "comment deleted" : comment.body}</p>
 		<div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--color-text-soft)]">
-			{comment.can_reply && onReply ? <button type="button" onClick={() => onReply(comment)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-[var(--color-surface-strong)]"><CornerDownRight size={13} /> Reply</button> : null}
-			{comment.can_edit && onEdit ? <button type="button" onClick={() => onEdit(comment)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-[var(--color-surface-strong)]"><Pencil size={13} /> Edit</button> : null}
-			{comment.can_edit && onDelete ? <button type="button" onClick={() => void onDelete(comment)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger-text)]"><Trash2 size={13} /> Delete</button> : null}
-			{comment.can_resolve && onResolved ? <button type="button" onClick={() => void onResolved(comment, !comment.resolved_at)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-[var(--color-surface-strong)]">{comment.resolved_at ? <RotateCcw size={13} /> : <Check size={13} />}{comment.resolved_at ? "Reopen" : "Resolve"}</button> : null}
+			{comment.can_reply && onReply ? <button type="button" onClick={() => onReply(comment)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-[var(--color-surface-strong)]"><CornerDownRight size={13} /> reply</button> : null}
+			{comment.can_edit && onEdit ? <button type="button" onClick={() => onEdit(comment)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-[var(--color-surface-strong)]"><Pencil size={13} /> edit</button> : null}
+			{comment.can_edit && onDelete ? <button type="button" onClick={() => void onDelete(comment)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger-text)]"><Trash2 size={13} /> delete</button> : null}
+			{comment.can_resolve && onResolved ? <button type="button" onClick={() => void onResolved(comment, !comment.resolved_at)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-[var(--color-surface-strong)]">{comment.resolved_at ? <RotateCcw size={13} /> : <Check size={13} />}{comment.resolved_at ? "reopen" : "resolve"}</button> : null}
 		</div>
 	</div>;
 }

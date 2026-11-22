@@ -41,7 +41,7 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove, onReselect
           </span>
           <span className="min-w-0">
             <span className="block text-[10px] uppercase tracking-[0.28em] text-[var(--color-text-soft)]">
-              Transfers
+              transfers
             </span>
             <span className="font-heading mt-0.5 block text-sm font-semibold tracking-[-0.02em]">
               {summary.done} of {summary.total} complete
@@ -60,7 +60,7 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove, onReselect
 
       {open ? (
         <div className="grid max-h-[min(55dvh,520px)] grid-cols-[minmax(0,1fr)] gap-2 overflow-y-auto overscroll-contain px-3 pb-3" aria-live="polite">
-          {summary.failed > 0 && onRetry ? <button type="button" onClick={() => transfers.filter((transfer) => transfer.status === "error").forEach((transfer) => onRetry(transfer.id))} className="rounded-full px-3 py-2 text-xs font-medium text-[var(--color-primary)]">Retry failed files</button> : null}
+          {summary.failed > 0 && onRetry ? <button type="button" onClick={() => transfers.filter((transfer) => transfer.status === "error").forEach((transfer) => onRetry(transfer.id))} className="rounded-full px-3 py-2 text-xs font-medium text-[var(--color-primary)]">retry failed files</button> : null}
           {transfers.map((transfer) => {
             const percent = transfer.totalBytes > 0
               ? Math.min(100, Math.round((transfer.transferredBytes / transfer.totalBytes) * 100))
@@ -79,8 +79,8 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove, onReselect
                   <div className="flex shrink-0 gap-0.5">
                     {transfer.status === "error" && onRetry ? <button type="button" aria-label={`Retry ${transfer.fileName}`} onClick={() => onRetry(transfer.id)} className="rounded-full p-1.5 text-[var(--color-text-soft)]"><RotateCcw size={12} /></button> : null}
 					{transfer.status === "paused" && transfer.canResume === false && transfer.resumable ? (
-						<label className="cursor-pointer rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)]" title="Reselect the same file to resume">
-							<span className="sr-only">Reselect {transfer.fileName} to resume</span>
+						<label className="cursor-pointer rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)]" title="reselect the same file to resume">
+							<span className="sr-only">reselect {transfer.fileName} to resume</span>
 							<FileUp size={12} aria-hidden="true" />
 							<input
 								type="file"
@@ -95,7 +95,7 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove, onReselect
 					) : null}
 					<button
 						type="button"
-						aria-label={transfer.status === "paused" ? "Resume transfer" : "Pause transfer"}
+						aria-label={transfer.status === "paused" ? "resume transfer" : "pause transfer"}
 						disabled={!onToggleStatus || !transfer.resumable || (transfer.status === "paused" && transfer.canResume === false) || (transfer.status !== "uploading" && transfer.status !== "paused")}
 						onClick={() => onToggleStatus?.(transfer.id)}
 						className="rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -104,7 +104,7 @@ export function TransferDrawer({ transfers, onToggleStatus, onRemove, onReselect
 					</button>
                     <button
                       type="button"
-                      aria-label={transfer.status === "done" ? "Dismiss transfer" : "Cancel transfer"}
+                      aria-label={transfer.status === "done" ? "dismiss transfer" : "cancel transfer"}
                       disabled={!onRemove}
                       onClick={() => onRemove?.(transfer.id)}
                       className="rounded-full p-1.5 text-[var(--color-text-soft)] hover:bg-[var(--color-surface-low)] disabled:cursor-not-allowed disabled:opacity-40"

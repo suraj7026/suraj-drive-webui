@@ -109,7 +109,7 @@ export function FilePreviewModal({
       <button
         type="button"
         tabIndex={-1}
-        aria-label="Close preview"
+        aria-label="close preview"
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-[var(--color-scrim)] backdrop-blur-md"
       />
@@ -171,12 +171,12 @@ function PreviewTopBar({
           className="inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-2 text-sm font-medium text-white hover:bg-white/20"
         >
           <ArrowDownToLine size={16} />
-          Download
+          download
         </button>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close preview"
+          aria-label="close preview"
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white/12 text-white hover:bg-white/20"
         >
           <X size={16} />
@@ -192,7 +192,7 @@ function NavButton({ direction, onClick }: { direction: "prev" | "next"; onClick
     <button
       type="button"
       onClick={onClick}
-      aria-label={direction === "prev" ? "Previous file" : "Next file"}
+      aria-label={direction === "prev" ? "previous file" : "next file"}
       className={cn(
         "absolute top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur-sm hover:bg-white/24",
         direction === "prev" ? "left-4" : "right-4"
@@ -251,7 +251,7 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
     return (
       <div className="relative z-0 flex flex-col items-center gap-3 text-white/72">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/24 border-t-white" />
-        <p className="text-sm">Preparing preview...</p>
+        <p className="text-sm">preparing preview...</p>
       </div>
     );
   }
@@ -259,7 +259,7 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
   if (error || !url) {
     return (
       <div className="relative z-0 max-w-md rounded-[24px] bg-white/8 px-6 py-6 text-center text-white">
-        <p className="text-base font-medium">Could not load preview</p>
+        <p className="text-base font-medium">could not load preview</p>
         <p className="mt-2 text-sm text-white/72">{error ?? "Unknown error."}</p>
         <button
           type="button"
@@ -267,7 +267,7 @@ function PreviewBody({ item, onDownload }: { item: FileItem; onDownload: () => v
           className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
         >
           <ArrowDownToLine size={16} />
-          Download instead
+          download instead
         </button>
       </div>
     );
@@ -371,7 +371,7 @@ function HeicImagePreview({
   if (error) {
     return (
       <div className="max-w-md rounded-[24px] bg-white/8 px-6 py-6 text-center text-white">
-        <p className="text-base font-medium">Could not convert HEIC</p>
+        <p className="text-base font-medium">could not convert heic</p>
         <p className="mt-2 text-sm text-white/72">{error}</p>
         <div className="mt-4 flex items-center justify-center gap-2">
           <button
@@ -380,7 +380,7 @@ function HeicImagePreview({
             className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
           >
             <ArrowDownToLine size={16} />
-            Download
+            download
           </button>
         </div>
       </div>
@@ -391,7 +391,7 @@ function HeicImagePreview({
     return (
       <div className="flex flex-col items-center gap-3 text-white/72">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/24 border-t-white" />
-        <p className="text-sm">Decoding HEIC...</p>
+        <p className="text-sm">decoding heic...</p>
       </div>
     );
   }
@@ -428,7 +428,7 @@ function NonRenderableImageNotice({
       <div>
         <p className="text-lg font-semibold">{ext} preview not supported</p>
         <p className="mt-1 text-sm text-white/72">
-          Most browsers cannot render {ext} natively. Open the file directly or download it.
+          most browsers cannot render {ext} natively. open the file directly or download it.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -438,7 +438,7 @@ function NonRenderableImageNotice({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
         >
-          Open in new tab
+          open in new tab
         </a>
         <button
           type="button"
@@ -446,7 +446,7 @@ function NonRenderableImageNotice({
           className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
         >
           <ArrowDownToLine size={16} />
-          Download
+          download
         </button>
       </div>
     </div>
@@ -491,7 +491,7 @@ function TextPreview({
   if (error) {
     return (
       <div className="relative z-0 max-w-md rounded-[24px] bg-white/8 px-6 py-6 text-center text-white">
-        <p className="text-base font-medium">Could not load text preview</p>
+        <p className="text-base font-medium">could not load text preview</p>
         <p className="mt-2 text-sm text-white/72">{error}</p>
         <button
           type="button"
@@ -499,7 +499,7 @@ function TextPreview({
           className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
         >
           <ArrowDownToLine size={16} />
-          Download instead
+          download instead
         </button>
       </div>
     );
@@ -509,7 +509,7 @@ function TextPreview({
     return (
       <div className="relative z-0 flex flex-col items-center gap-3 text-white/72">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/24 border-t-white" />
-        <p className="text-sm">Loading {name}...</p>
+        <p className="text-sm">loading {name}...</p>
       </div>
     );
   }
@@ -521,7 +521,7 @@ function TextPreview({
       </pre>
       {truncated ? (
         <div className="border-t border-[var(--color-outline)] bg-[var(--color-surface-low)] px-6 py-3 text-xs text-[var(--color-text-soft)]">
-          Showing first {Math.round(MAX_TEXT_PREVIEW_BYTES / 1024)} KB. Download for the full file.
+          showing first {Math.round(MAX_TEXT_PREVIEW_BYTES / 1024)} kb. download for the full file.
         </div>
       ) : null}
     </div>
@@ -538,7 +538,7 @@ function UnsupportedPreview({ item, onDownload }: { item: FileItem; onDownload: 
         <FileQuestion size={26} />
       </span>
       <div>
-        <p className="text-lg font-semibold">Preview not available</p>
+        <p className="text-lg font-semibold">preview not available</p>
         <p className="mt-1 text-sm text-white/72">
           {typeLabel} files cannot be previewed in the browser yet.
         </p>
@@ -550,7 +550,7 @@ function UnsupportedPreview({ item, onDownload }: { item: FileItem; onDownload: 
         className="inline-flex items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-sm font-medium hover:bg-white/24"
       >
         <ArrowDownToLine size={16} />
-        Download file
+        download file
       </button>
     </div>
   );

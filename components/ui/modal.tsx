@@ -51,7 +51,7 @@ export function Modal({ open, onClose, title, description, children, className }
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
       aria-describedby={description ? descriptionId : undefined}
-      aria-label={title ? undefined : "Dialog"}
+      aria-label={title ? undefined : "dialog"}
       ref={dialogRef}
       tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
@@ -59,7 +59,7 @@ export function Modal({ open, onClose, title, description, children, className }
       <button
         type="button"
         tabIndex={-1}
-        aria-label="Close dialog"
+        aria-label="close dialog"
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-[var(--color-scrim)] backdrop-blur-sm"
       />
@@ -83,7 +83,7 @@ export function Modal({ open, onClose, title, description, children, className }
             type="button"
             data-autofocus
             onClick={onClose}
-            aria-label="Close"
+            aria-label="close"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-low)] text-[var(--color-text-soft)] hover:text-[var(--color-text)]"
           >
             <X size={16} />

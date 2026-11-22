@@ -64,22 +64,22 @@ type ArchiveBrowserViewProps = {
 };
 
 const SORT_OPTIONS = [
-  { key: "default", label: "Default order" },
-  { key: "name-asc", label: "Name (A → Z)" },
-  { key: "name-desc", label: "Name (Z → A)" },
-  { key: "date-newest", label: "Newest first" },
-  { key: "date-oldest", label: "Oldest first" },
-  { key: "size-largest", label: "Largest first" },
-  { key: "size-smallest", label: "Smallest first" },
+  { key: "default", label: "default order" },
+  { key: "name-asc", label: "name (a → z)" },
+  { key: "name-desc", label: "name (z → a)" },
+  { key: "date-newest", label: "newest first" },
+  { key: "date-oldest", label: "oldest first" },
+  { key: "size-largest", label: "largest first" },
+  { key: "size-smallest", label: "smallest first" },
 ];
 
 const FILTER_OPTIONS = [
-  { key: "all", label: "All items" },
-  { key: "folder", label: "Folders" },
-  { key: "file", label: "Files" },
-  { key: "image", label: "Images" },
-  { key: "pdf", label: "Documents" },
-  { key: "video", label: "Media" },
+  { key: "all", label: "all items" },
+  { key: "folder", label: "folders" },
+  { key: "file", label: "files" },
+  { key: "image", label: "images" },
+  { key: "pdf", label: "documents" },
+  { key: "video", label: "media" },
 ];
 
 const MULTIPART_UPLOAD_THRESHOLD = 16 << 20;
@@ -120,8 +120,8 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
   const canManageView = context.section === "archive";
 	const isTrashView = context.section === "trash";
   const uploadTargetLabel = currentPrefix
-    ? `My Archive / ${currentPrefix}`
-    : "My Archive";
+    ? `my archive / ${currentPrefix}`
+    : "my archive";
 
 	useEffect(() => () => {
 		queueRef.current?.cancelPending();
@@ -595,7 +595,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 		}
 		const targetPrefix = joinPath([currentPrefix, ...directorySegments].filter(Boolean));
 		const directoryPath = joinPath(directorySegments);
-		const targetLabel = targetPrefix ? `My Archive / ${targetPrefix}` : uploadTargetLabel;
+		const targetLabel = targetPrefix ? `my archive / ${targetPrefix}` : uploadTargetLabel;
 		const transferId = crypto.randomUUID();
 		transferFilesRef.current[transferId] = file;
 		return { transferId, file, directoryPath, targetPrefix, targetLabel, targetParentId: currentFolderId };
@@ -864,7 +864,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
               onClick={() => setFolderOpen(true)}
               className="rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] shadow-[inset_0_0_0_1px_var(--color-outline)]"
             >
-              New Folder
+              new folder
             </button>
             <button
               type="button"
@@ -872,14 +872,14 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
               className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white"
             >
               <CloudUpload size={16} />
-              Upload
+              upload
             </button>
           </div>
 		) : isTrashView && context.items.length > 0 ? (
-			<button type="button" onClick={() => setPermanentDeleteTarget("all")} className="rounded-full bg-[var(--color-danger)] px-4 py-3 text-sm font-semibold text-white">Empty Trash</button>
+			<button type="button" onClick={() => setPermanentDeleteTarget("all")} className="rounded-full bg-[var(--color-danger)] px-4 py-3 text-sm font-semibold text-white">empty trash</button>
 		) : (
           <Link href={archiveHref} className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white">
-            Open My Archive
+            open my archive
           </Link>
         )
       }
@@ -900,20 +900,17 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
         <section className="grid gap-5">
 			{context.storageSummary ? <StorageSummaryCard summary={context.storageSummary} /> : null}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
+            {context.path.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--color-text-soft)]">
                 <Breadcrumbs bucketId={context.bucket.id} segments={context.path} bucketLabel={context.bucket.name} />
               </div>
-              <h2 className="font-heading mt-3 text-3xl font-semibold tracking-[-0.04em]">
-                {context.currentFolderLabel}
-              </h2>
-            </div>
+            ) : null}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 lg:ml-auto">
               <div className="relative" data-toolbar-dropdown>
                 <GhostAction
                   icon={ArrowUpWideNarrow}
-                  label="Sort"
+                  label="sort"
                   onClick={() => { setSortOpen((v) => !v); setFilterOpen(false); }}
                   active={sortKey !== "default"}
                 />
@@ -942,7 +939,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
               <div className="relative" data-toolbar-dropdown>
                 <GhostAction
                   icon={TableProperties}
-                  label="Filter"
+                  label="filter"
                   onClick={() => { setFilterOpen((v) => !v); setSortOpen(false); }}
                   active={filterKind !== "all"}
                 />
@@ -968,10 +965,10 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                 ) : null}
               </div>
 
-              <div className="flex items-center rounded-full bg-[var(--color-surface-low)] p-1 shadow-[inset_0_0_0_1px_var(--color-outline)]" aria-label="View mode">
-				<button type="button" onClick={() => chooseView("list")} className={cn("rounded-full p-2", viewMode === "list" ? "bg-[var(--color-surface-strong)] text-[var(--color-primary)] shadow-sm" : "text-[var(--color-text-soft)]")} aria-label="List view" aria-pressed={viewMode === "list"}><List size={17} /></button>
-				<button type="button" onClick={() => chooseView("grid")} className={cn("rounded-full p-2", viewMode === "grid" ? "bg-[var(--color-surface-strong)] text-[var(--color-primary)] shadow-sm" : "text-[var(--color-text-soft)]")} aria-label="Grid view" aria-pressed={viewMode === "grid"}><LayoutGrid size={17} /></button>
-				<button type="button" onClick={toggleDensity} className={cn("rounded-full p-2", density === "compact" ? "bg-[var(--color-surface-strong)] text-[var(--color-primary)] shadow-sm" : "text-[var(--color-text-soft)]")} aria-label={density === "compact" ? "Use comfortable density" : "Use compact density"} aria-pressed={density === "compact"}><Rows3 size={17} /></button>
+              <div className="flex items-center gap-1" aria-label="view mode">
+				<button type="button" onClick={() => chooseView("list")} className={cn("p-2", viewMode === "list" ? "bg-[var(--color-primary)] text-[var(--color-on-primary)]" : "text-[var(--color-text-soft)] hover:text-[var(--color-text)]")} aria-label="list view" aria-pressed={viewMode === "list"}><List size={17} /></button>
+				<button type="button" onClick={() => chooseView("grid")} className={cn("p-2", viewMode === "grid" ? "bg-[var(--color-primary)] text-[var(--color-on-primary)]" : "text-[var(--color-text-soft)] hover:text-[var(--color-text)]")} aria-label="grid view" aria-pressed={viewMode === "grid"}><LayoutGrid size={17} /></button>
+				<button type="button" onClick={toggleDensity} className={cn("p-2", density === "compact" ? "bg-[var(--color-primary)] text-[var(--color-on-primary)]" : "text-[var(--color-text-soft)] hover:text-[var(--color-text)]")} aria-label={density === "compact" ? "use comfortable density" : "use compact density"} aria-pressed={density === "compact"}><Rows3 size={17} /></button>
 			  </div>
 
             </div>
@@ -986,42 +983,39 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 		  {context.searchFilters ? <SearchFilterBar filters={context.searchFilters} /> : null}
 
 		  {selectedIds.size > 0 ? (
-			<div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-[var(--color-secondary-soft)] px-4 py-3" aria-live="polite">
-				<div><p className="text-sm font-semibold">{selectedIds.size} selected</p><p className="text-xs text-[var(--color-text-soft)]">Up to 100 items per batch · Esc clears selection</p></div>
+			<div className="flex flex-wrap items-center justify-between gap-3 py-3" aria-live="polite">
+				<div><p className="text-sm font-semibold">{selectedIds.size} selected</p><p className="text-xs text-[var(--color-text-soft)]">up to 100 items per batch · esc clears selection</p></div>
 				<div className="flex flex-wrap gap-2">
-					{isTrashView ? <button type="button" onClick={() => void handleBatch("restore")} disabled={isPending} className="rounded-full bg-[var(--color-surface-strong)] px-4 py-2 text-sm font-medium disabled:opacity-50">Restore</button> : <>
-						<button type="button" onClick={() => void handleBatch("star")} disabled={isPending} className="rounded-full bg-[var(--color-surface-strong)] px-4 py-2 text-sm font-medium disabled:opacity-50">Star</button>
-						<button type="button" onClick={() => void handleBatch("unstar")} disabled={isPending} className="rounded-full bg-[var(--color-surface-strong)] px-4 py-2 text-sm font-medium disabled:opacity-50">Unstar</button>
-						{canManageView ? <button type="button" onClick={() => void handleBatch("trash")} disabled={isPending} className="rounded-full bg-[var(--color-danger)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Move to trash</button> : null}
+					{isTrashView ? <button type="button" onClick={() => void handleBatch("restore")} disabled={isPending} className="bg-[var(--color-surface-low)] px-4 py-2 text-sm font-medium disabled:opacity-50">restore</button> : <>
+						<button type="button" onClick={() => void handleBatch("star")} disabled={isPending} className="bg-[var(--color-surface-low)] px-4 py-2 text-sm font-medium disabled:opacity-50">star</button>
+						<button type="button" onClick={() => void handleBatch("unstar")} disabled={isPending} className="bg-[var(--color-surface-low)] px-4 py-2 text-sm font-medium disabled:opacity-50">unstar</button>
+						{canManageView ? <button type="button" onClick={() => void handleBatch("trash")} disabled={isPending} className="rounded-full bg-[var(--color-danger)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">move to trash</button> : null}
 					</>}
-					<button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-full px-4 py-2 text-sm font-medium">Clear</button>
+					<button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-full px-4 py-2 text-sm font-medium">clear</button>
 				</div>
 			</div>
 		  ) : null}
 
-          <div className={cn("rounded-[32px] bg-[var(--color-surface-strong)] shadow-[0_12px_32px_rgba(26,28,25,0.06)]", viewMode === "list" && "overflow-hidden")}>
+          <div className={cn(viewMode === "list" && "overflow-hidden")}>
             <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-5 py-4 text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)] sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:px-6 md:grid-cols-[minmax(0,1.3fr)_140px_100px_auto]", viewMode === "grid" && "sr-only")}>
-			  <span className="flex items-center gap-3"><input type="checkbox" aria-label="Select all visible items" checked={displayItems.length > 0 && displayItems.slice(0, 100).every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds(event.target.checked ? new Set(displayItems.slice(0, 100).map((item) => item.id)) : new Set())} className="h-4 w-4 accent-[var(--color-primary)]" />Name</span>
-              <span className="hidden md:block">Modified</span>
-              <span className="hidden sm:block">Size</span>
-              <span className="justify-self-end">Actions</span>
+			  <span className="flex items-center gap-3"><input type="checkbox" aria-label="select all visible items" checked={displayItems.length > 0 && displayItems.slice(0, 100).every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds(event.target.checked ? new Set(displayItems.slice(0, 100).map((item) => item.id)) : new Set())} className="h-4 w-4 accent-[var(--color-primary)]" />name</span>
+              <span className="hidden md:block">modified</span>
+              <span className="hidden sm:block">size</span>
+              <span className="justify-self-end">actions</span>
             </div>
 
             {displayItems.length === 0 ? (
               filterKind !== "all" ? (
-                <div className="grid place-items-center px-6 py-14 text-center">
+                <div className="px-1 py-10">
                   <div className="max-w-md">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-[var(--color-surface-low)] text-[var(--color-primary)]">
-                      <TableProperties size={22} />
-                    </div>
-                    <h3 className="font-heading mt-5 text-2xl font-semibold tracking-[-0.04em]">No matches</h3>
-                    <p className="mt-3 text-sm leading-7 text-[var(--color-text-soft)]">No items match the current filter.</p>
+                    <h3 className="font-heading text-4xl font-light tracking-[-0.04em]">no matches</h3>
+                    <p className="mt-3 text-base leading-7 text-[var(--color-text-muted)]">no items match the current filter.</p>
                     <button
                       type="button"
                       onClick={() => setFilterKind("all")}
                       className="mt-6 rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] shadow-[inset_0_0_0_1px_var(--color-outline)]"
                     >
-                      Clear filter
+                      clear filter
                     </button>
                   </div>
                 </div>
@@ -1051,12 +1045,16 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                       }}
                       className={cn(
                         viewMode === "list"
-							? "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 transition-colors sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:px-6 md:grid-cols-[minmax(0,1.3fr)_140px_100px_auto]"
-							: "flex min-h-[190px] flex-col gap-4 rounded-[24px] border border-[var(--color-outline)] p-5 transition-colors",
+							? "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-l-[3px] px-5 transition-colors sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:px-6 md:grid-cols-[minmax(0,1.3fr)_140px_100px_auto]"
+							: "flex min-h-[190px] flex-col gap-4 bg-[var(--color-surface-low)] p-5 transition-colors",
 						viewMode === "list" && (density === "compact" ? "py-2.5" : "py-4"),
                         selectedItem?.id === item.id
-                          ? "bg-[var(--color-secondary-soft)]/88"
-                          : "hover:bg-[var(--color-surface-low)]/75",
+                          ? viewMode === "list"
+                            ? "border-l-[var(--color-primary)] bg-[var(--color-highlight)]"
+                            : "outline outline-2 outline-[var(--color-primary)]"
+                          : viewMode === "list"
+                            ? "border-l-transparent hover:bg-[var(--color-highlight)]"
+                            : "hover:outline hover:outline-2 hover:outline-[var(--color-primary)]",
                         href && "cursor-pointer"
                       )}
                     >
@@ -1078,7 +1076,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
                           }}
                           className="flex min-w-0 items-center gap-3 text-left"
                         >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[15px] bg-[var(--color-surface-low)] text-[var(--color-primary)]">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center text-[var(--color-primary)]">
                             <ItemIcon kind={item.kind} fileType={item.fileType} folderColor={item.folderColor} />
                           </span>
                           <span className="min-w-0">
@@ -1106,7 +1104,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 								aria-label={`Restore ${item.name}`}
 							>
 								<RotateCcw size={16} />
-								<span className="hidden sm:inline">Restore</span>
+								<span className="hidden sm:inline">restore</span>
 							</button>
 							<button
 								type="button"
@@ -1149,7 +1147,7 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 								className="rounded-full p-2 hover:bg-[var(--color-surface-low)] hover:text-[var(--color-text)] disabled:opacity-40"
 								aria-label={item.starred ? `Remove star from ${item.name}` : `Star ${item.name}`}
 							>
-								<Star size={16} fill={item.starred ? "currentColor" : "none"} />
+								<Star size={16} fill={item.starred ? "currentcolor" : "none"} />
 							</button>
 						) : null}
                         {href ? (
@@ -1205,8 +1203,8 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
             )}
           </div>
 
-          <div className="flex items-center justify-between rounded-[22px] bg-[var(--color-surface-low)] px-5 py-4 text-sm text-[var(--color-text-muted)]">
-			<span>{isTrashView ? "Items are automatically purged after 30 days." : "Browsing live files from your personal drive."}</span>
+          <div className="flex items-center justify-between py-4 text-sm text-[var(--color-text-muted)]">
+			<span>{isTrashView ? "items are automatically purged after 30 days." : "browsing live files from your personal drive."}</span>
             <span>
               {filterKind !== "all"
                 ? `${displayItems.length} of ${context.items.length} visible objects`
@@ -1288,36 +1286,36 @@ export function ArchiveBrowserView({ context }: ArchiveBrowserViewProps) {
 }
 
 function SearchFilterBar({ filters }: { filters: NonNullable<ArchiveContext["searchFilters"]> }) {
-	const fieldClass = "rounded-[14px] bg-[var(--color-surface-strong)] px-3 py-2.5 text-sm text-[var(--color-text)] outline-none";
+	const fieldClass = "bg-[var(--color-surface-low)] px-3 py-2.5 text-sm text-[var(--color-text)] outline-none";
 	return (
-		<form action="/search" method="get" className="grid gap-3 rounded-[26px] bg-[var(--color-surface-low)] p-4 md:grid-cols-2 xl:grid-cols-4">
+		<form action="/search" method="get" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 			<input type="hidden" name="q" value={filters.query} />
-			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">Type
+			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">type
 				<select name="type" defaultValue={filters.type ?? ""} className={fieldClass}>
-					<option value="">Any type</option><option value="folder">Folder</option><option value="file">Any file</option><option value="image">Image</option><option value="video">Video</option><option value="audio">Audio</option><option value="pdf">PDF</option><option value="archive">Archive</option>
+					<option value="">any type</option><option value="folder">folder</option><option value="file">any file</option><option value="image">image</option><option value="video">video</option><option value="audio">audio</option><option value="pdf">pdf</option><option value="archive">archive</option>
 				</select>
 			</label>
-			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">Owner
+			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">owner
 				<input name="owner" defaultValue={filters.owner ?? ""} placeholder="me or email address" className={fieldClass} />
 			</label>
-			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">Shared
-				<select name="shared" defaultValue={filters.shared ?? ""} className={fieldClass}><option value="">Any</option><option value="yes">Shared with me</option><option value="no">In my drive</option></select>
+			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">shared
+				<select name="shared" defaultValue={filters.shared ?? ""} className={fieldClass}><option value="">any</option><option value="yes">shared with me</option><option value="no">in my drive</option></select>
 			</label>
-			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">Starred
-				<select name="starred" defaultValue={filters.starred ?? ""} className={fieldClass}><option value="">Any</option><option value="yes">Starred</option><option value="no">Not starred</option></select>
+			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">starred
+				<select name="starred" defaultValue={filters.starred ?? ""} className={fieldClass}><option value="">any</option><option value="yes">starred</option><option value="no">not starred</option></select>
 			</label>
-			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">Modified after
+			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">modified after
 				<input type="date" name="modified_after" defaultValue={filters.modifiedAfter ?? ""} className={fieldClass} />
 			</label>
-			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">Modified before
+			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">modified before
 				<input type="date" name="modified_before" defaultValue={filters.modifiedBefore ?? ""} className={fieldClass} />
 			</label>
-			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">Trash
-				<select name="trash" defaultValue={filters.trash ?? ""} className={fieldClass}><option value="">Exclude trash</option><option value="only">Only trash</option><option value="all">Include trash</option></select>
+			<label className="grid gap-1.5 text-xs font-medium text-[var(--color-text-soft)]">trash
+				<select name="trash" defaultValue={filters.trash ?? ""} className={fieldClass}><option value="">exclude trash</option><option value="only">only trash</option><option value="all">include trash</option></select>
 			</label>
 			<div className="flex items-end gap-2">
-				<button type="submit" className="primary-gradient rounded-full px-4 py-2.5 text-sm font-semibold text-white">Apply filters</button>
-				<Link href={`/search?q=${encodeURIComponent(filters.query)}`} className="rounded-full bg-[var(--color-surface-strong)] px-4 py-2.5 text-sm font-medium">Clear</Link>
+				<button type="submit" className="primary-gradient rounded-full px-4 py-2.5 text-sm font-semibold text-white">apply filters</button>
+				<Link href={`/search?q=${encodeURIComponent(filters.query)}`} className="rounded-full bg-[var(--color-surface-strong)] px-4 py-2.5 text-sm font-medium">clear</Link>
 			</div>
 		</form>
 	);
@@ -1333,18 +1331,18 @@ function CollectionsSection({ context }: { context: ArchiveContext }) {
       {context.collections.length > 0 ? (
         <div className="grid gap-5">
           <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)]">Collections</p>
-            <h2 className="font-heading mt-2 text-2xl font-semibold tracking-[-0.04em]">Your living folders</h2>
+            <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-soft)]">collections</p>
+            <h2 className="font-heading mt-2 text-2xl font-semibold tracking-[-0.04em]">your living folders</h2>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
             {context.collections.map((collection) => (
               <Link
                 key={collection.id}
                 href={collection.href}
-                className="group flex min-h-[228px] flex-col rounded-[32px] bg-[var(--color-surface-strong)] px-6 py-6 shadow-[0_12px_32px_rgba(26,28,25,0.06)] transition-transform duration-300 hover:-translate-y-1 hover:bg-[var(--color-surface-high)]"
+                className="group flex min-h-[180px] flex-col bg-[var(--color-surface-low)] px-6 py-6 transition-colors duration-200 hover:bg-[var(--color-primary)] hover:text-[var(--color-on-primary)]"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--color-surface-low)] text-[var(--color-primary)]">
+                  <span className="flex h-8 w-8 items-center justify-center text-[var(--color-primary)] group-hover:text-[var(--color-on-primary)]">
                     {collection.shared ? <FolderOpen size={20} /> : <Folder size={20} />}
                   </span>
                   <button type="button" aria-label={`More options for ${collection.title}`} className="rounded-full p-2 text-[var(--color-text-soft)] opacity-0 transition-opacity group-hover:opacity-100">
@@ -1354,8 +1352,8 @@ function CollectionsSection({ context }: { context: ArchiveContext }) {
                 <h3 className="font-heading mt-7 max-w-[12ch] text-[clamp(1.8rem,2vw,2.5rem)] font-semibold tracking-[-0.06em]">
                   {collection.title}
                 </h3>
-                <p className="mt-3 max-w-[18ch] text-base leading-8 text-[var(--color-text-muted)]">
-                  {collection.objectCount} Objects · Updated {collection.updatedLabel}
+                <p className="mt-3 max-w-[18ch] text-base leading-8 text-[var(--color-text-muted)] group-hover:text-[var(--color-on-primary)]">
+                  {collection.objectCount} objects · updated {collection.updatedLabel}
                 </p>
               </Link>
             ))}
@@ -1375,10 +1373,10 @@ function StorageSummaryCard({ summary }: { summary: NonNullable<ArchiveContext["
 	const used = summary.committedBytes + summary.reservedBytes;
 	const percent = summary.quotaBytes > 0 ? Math.min(100, (used / summary.quotaBytes) * 100) : 0;
 	return (
-		<section className="rounded-[28px] bg-[var(--color-surface-low)] p-5 sm:p-6" aria-label="Storage usage">
+		<section aria-label="storage usage">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div>
-					<p className="text-xs uppercase tracking-[0.24em] text-[var(--color-text-soft)]">Storage used</p>
+					<p className="text-xs uppercase tracking-[0.24em] text-[var(--color-text-soft)]">storage used</p>
 					<p className="font-heading mt-2 text-2xl font-semibold">{formatBytes(used)} of {formatBytes(summary.quotaBytes)}</p>
 				</div>
 				<p className="text-sm text-[var(--color-text-muted)]">{summary.objectCount.toLocaleString()} files</p>
@@ -1387,11 +1385,11 @@ function StorageSummaryCard({ summary }: { summary: NonNullable<ArchiveContext["
 				<div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${percent}%` }} />
 			</div>
 			<div className="mt-4 grid gap-2 text-sm text-[var(--color-text-muted)] sm:grid-cols-3">
-				<span>Files and retained uploads: {formatBytes(Math.max(0, summary.committedBytes - summary.trashBytes - summary.versionBytes))}</span>
-				<span>Trash: {formatBytes(summary.trashBytes)}</span>
-				<span>Version history: {formatBytes(summary.versionBytes)}</span>
+				<span>files and retained uploads: {formatBytes(Math.max(0, summary.committedBytes - summary.trashBytes - summary.versionBytes))}</span>
+				<span>trash: {formatBytes(summary.trashBytes)}</span>
+				<span>version history: {formatBytes(summary.versionBytes)}</span>
 			</div>
-			<p className="mt-3 text-xs text-[var(--color-text-muted)]">Uploads awaiting verification or cleanup count toward your storage limit. Uploads in progress reserve {formatBytes(summary.reservedBytes)}.</p>
+			<p className="mt-3 text-xs text-[var(--color-text-muted)]">uploads awaiting verification or cleanup count toward your storage limit. uploads in progress reserve {formatBytes(summary.reservedBytes)}.</p>
 		</section>
 	);
 }
@@ -1411,7 +1409,7 @@ function DetailsPanel({ item }: { item: FileItem | null }) {
   if (!item) {
     return (
       <div>
-        <p className="text-sm text-[var(--color-text-soft)]">Select an item to inspect its archive details.</p>
+        <p className="text-sm text-[var(--color-text-soft)]">select an item to inspect its archive details.</p>
       </div>
     );
   }
@@ -1421,32 +1419,32 @@ function DetailsPanel({ item }: { item: FileItem | null }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-soft)]">Details</p>
-        <button type="button" aria-label="More details options" className="rounded-full bg-[var(--color-surface-low)] p-2 text-[var(--color-text-soft)]">
+        <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-soft)]">details</p>
+        <button type="button" aria-label="more details options" className="p-2 text-[var(--color-text-soft)] hover:text-[var(--color-primary)]">
           <MoreHorizontal size={16} />
         </button>
       </div>
 
-      <div className="rounded-[32px] bg-[var(--color-surface-high)] p-5">
-        <span className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-[var(--color-surface-strong)] text-[var(--color-primary)]">
+      <div>
+        <span className="flex h-10 w-10 items-center justify-center text-[var(--color-primary)]">
           <ItemIcon kind={item.kind} fileType={item.fileType} folderColor={item.folderColor} />
         </span>
         <h3 className="font-heading mt-6 text-2xl font-semibold tracking-[-0.04em] break-all">{item.name}</h3>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          {item.kind === "folder" ? "Folder" : item.fileType?.toUpperCase() ?? "Object"}
+          {item.kind === "folder" ? "folder" : item.fileType?.toUpperCase() ?? "Object"}
         </p>
       </div>
 
-      <DetailRow label="Location" value={item.path.join(" / ") || "My Archive"} />
-      <DetailRow label="Owner" value={item.owner} />
-      <DetailRow label="Updated" value={item.updatedAt ? formatDateLabel(item.updatedAt) : "--"} />
-      <DetailRow label="Size" value={item.sizeBytes !== undefined ? formatBytes(item.sizeBytes) : "--"} />
-      <DetailRow label="Classification" value={item.tags?.join(" · ") ?? "Personal Archive"} />
+      <DetailRow label="location" value={item.path.join(" / ") || "my archive"} />
+      <DetailRow label="owner" value={item.owner} />
+      <DetailRow label="updated" value={item.updatedAt ? formatDateLabel(item.updatedAt) : "--"} />
+      <DetailRow label="size" value={item.sizeBytes !== undefined ? formatBytes(item.sizeBytes) : "--"} />
+      <DetailRow label="classification" value={item.tags?.join(" · ") ?? "personal archive"} />
 
 		<div className="space-y-3">
-			<p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-soft)]">Activity</p>
-			{activityLoading ? <p className="text-sm text-[var(--color-text-soft)]">Loading activity...</p> : activity.length === 0 ? <p className="text-sm text-[var(--color-text-soft)]">No activity recorded yet.</p> : activity.map((event) => (
-				<div key={event.id} className="rounded-[22px] bg-[var(--color-surface-strong)] px-4 py-3">
+			<p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-soft)]">activity</p>
+			{activityLoading ? <p className="text-sm text-[var(--color-text-soft)]">loading activity...</p> : activity.length === 0 ? <p className="text-sm text-[var(--color-text-soft)]">no activity recorded yet.</p> : activity.map((event) => (
+				<div key={event.id} className="py-2">
 					<p className="text-sm text-[var(--color-text)]"><span className="font-medium">{event.actor_name}</span> {activityLabel(event.event_type)}</p>
 					<p className="mt-1 text-xs text-[var(--color-text-soft)]">{formatDateLabel(event.created_at)}</p>
 				</div>
@@ -1481,7 +1479,7 @@ function activityLabel(eventType: string) {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid gap-1 rounded-[22px] bg-[var(--color-surface-strong)] px-4 py-4 shadow-[0_12px_32px_rgba(26,28,25,0.05)]">
+    <div className="grid gap-1 py-2">
       <span className="text-xs uppercase tracking-[0.22em] text-[var(--color-text-soft)]">{label}</span>
       <span className="text-sm text-[var(--color-text)]">{value}</span>
     </div>
@@ -1534,10 +1532,8 @@ function GhostAction({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm shadow-[inset_0_0_0_1px_var(--color-outline)] transition-colors duration-300",
-        active
-          ? "bg-[var(--color-primary-soft)] text-[var(--color-text)]"
-          : "bg-[var(--color-surface-low)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+        "metro-text-action inline-flex items-center gap-2 py-2 text-sm",
+        active && "is-active"
       )}
     >
       <Icon size={16} />
@@ -1615,13 +1611,10 @@ function EmptyArchiveState({
   onCreateFolder?: () => void;
 }) {
   return (
-    <div className="grid place-items-center px-6 py-14 text-center">
-      <div className="max-w-md">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-[var(--color-surface-low)] text-[var(--color-primary)]">
-          <FolderOpen size={22} />
-        </div>
-        <h3 className="font-heading mt-5 text-2xl font-semibold tracking-[-0.04em]">Nothing here yet</h3>
-        <p className="mt-3 text-sm leading-7 text-[var(--color-text-soft)]">{message}</p>
+    <div className="px-1 py-10">
+      <div className="max-w-xl">
+        <h3 className="font-heading text-4xl font-light tracking-[-0.04em] sm:text-5xl">nothing here yet</h3>
+        <p className="mt-3 max-w-md text-base leading-7 text-[var(--color-text-muted)]">{message}</p>
         <div className="mt-6 flex items-center justify-center gap-3">
           {onCreateFolder ? (
             <button
@@ -1629,7 +1622,7 @@ function EmptyArchiveState({
               onClick={onCreateFolder}
               className="rounded-full bg-[var(--color-surface-low)] px-4 py-3 text-sm font-medium text-[var(--color-text)] shadow-[inset_0_0_0_1px_var(--color-outline)]"
             >
-              New Folder
+              new folder
             </button>
           ) : null}
           {onUpload ? (
@@ -1639,14 +1632,14 @@ function EmptyArchiveState({
               className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white"
             >
               <CloudUpload size={16} />
-              Upload
+              upload
             </button>
           ) : onOpenArchiveHref ? (
             <Link
               href={onOpenArchiveHref}
               className="primary-gradient inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white"
             >
-              Open Archive
+              open archive
             </Link>
           ) : null}
         </div>
